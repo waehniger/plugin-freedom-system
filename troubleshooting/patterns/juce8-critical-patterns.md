@@ -648,6 +648,74 @@ Using total distance from start point: `startY - e.clientY` creates absolute pos
 
 ---
 
+## 17. juce::dsp::Reverb API - Modern DSP Pipeline (ALWAYS REQUIRED)
+
+### ❌ WRONG (API mismatch - will not compile)
+```cpp
+// Using old juce::Reverb API with juce::dsp::Reverb class
+juce::dsp::Reverb reverb;
+
+void prepareToPlay(double sampleRate, int samplesPerBlock) override {
+    reverb.setSampleRate(sampleRate);  // No such method in juce::dsp::Reverb
+    reverb.reset();
+}
+
+void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) override {
+    if (buffer.getNumChannels() == 1) {
+        reverb.processMono(buffer.getWritePointer(0), buffer.getNumSamples());  // Wrong API
+    } else if (buffer.getNumChannels() == 2) {
+        reverb.processStereo(buffer.getWritePointer(0), buffer.getWritePointer(1), buffer.getNumSamples());  // Wrong API
+    }
+}
+```
+
+### ✅ CORRECT
+```cpp
+// Modern juce::dsp::Reverb with ProcessSpec and AudioBlock
+juce::dsp::Reverb reverb;
+
+void prepareToPlay(double sampleRate, int samplesPerBlock) override {
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = static_cast<juce::uint32>(samplesPerBlock);
+    spec.numChannels = static_cast<juce::uint32>(getTotalNumOutputChannels());
+
+    reverb.prepare(spec);
+    reverb.reset();
+}
+
+void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) override {
+    juce::dsp::AudioBlock<float> block(buffer);
+    juce::dsp::ProcessContextReplacing<float> context(block);
+    reverb.process(context);  // Handles all channel configurations automatically
+}
+```
+
+**Why:** JUCE has two different reverb classes with incompatible APIs:
+- `juce::Reverb` (old, non-DSP module) - Uses `setSampleRate()`, `processMono()`, `processStereo()`
+- `juce::dsp::Reverb` (modern DSP module) - Uses `prepare(spec)` and `process(context)`
+
+**Key differences:**
+- Modern DSP uses ProcessSpec (not individual setters) in `prepare()`
+- Modern DSP uses AudioBlock/ProcessContext (not raw pointers) in `process()`
+- Modern DSP handles mono/stereo/multi-channel automatically via AudioBlock
+- Modern DSP integrates seamlessly with other juce::dsp components (DryWetMixer, etc.)
+
+**When:** ANY plugin using `juce::dsp::Reverb` or other `juce::dsp::` components
+
+**Pattern applies to all juce::dsp components:**
+- `juce::dsp::Compressor`
+- `juce::dsp::Limiter`
+- `juce::dsp::Chorus`
+- `juce::dsp::Phaser`
+- `juce::dsp::Reverb`
+- `juce::dsp::DelayLine`
+- `juce::dsp::IIR::Filter`
+
+**Documented in:** `troubleshooting/api-usage/juce-dsp-reverb-wrong-api-methods-FlutterVerb-20251111.md`
+
+---
+
 ## Usage Instructions
 
 ### For Subagents (foundation-agent, shell-agent, dsp-agent, gui-agent)
