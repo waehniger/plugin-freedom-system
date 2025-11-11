@@ -201,10 +201,15 @@ Present 4-option failure menu with investigation options.
 
 ### 5a. Build Verification via build-automation
 
-**After foundation-agent succeeds, invoke build-automation skill:**
+**CRITICAL: foundation-agent does NOT verify builds. plugin-workflow does this via build-automation.**
+
+**After foundation-agent returns success, invoke build-automation skill:**
 
 ```typescript
-console.log("Invoking build-automation skill with --no-install flag...");
+console.log("✓ foundation-agent complete: Source files created");
+console.log("  Files:", report.outputs.source_files_created);
+console.log("");
+console.log("Invoking build-automation to verify compilation...");
 
 Skill({
   skill: "build-automation",
@@ -218,13 +223,35 @@ Skill({
 });
 ```
 
-**build-automation will:**
+**build-automation workflow:**
 
-1. Run build script with --no-install flag
-2. If build succeeds: Display success message, return control to plugin-workflow
-3. If build fails: Present 4-option failure protocol
+1. Validates plugin directory exists: `plugins/${pluginName}`
+2. Validates CMakeLists.txt exists: `plugins/${pluginName}/CMakeLists.txt`
+3. Runs build from root: `cd ~/Developer/plugin-freedom-system`
+4. Executes: `./scripts/build-and-install.sh ${pluginName} --no-install`
+5. Build script runs cmake from root (not plugin directory):
+   - `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release` (if build/ doesn't exist)
+   - `cmake --build build --target ${pluginName}_VST3 --target ${pluginName}_AU`
+6. If build succeeds: Display success message, return control to plugin-workflow
+7. If build fails: Present 4-option failure protocol
 
-**Note:** Build failures are handled entirely by build-automation skill.
+**Build failure protocol (handled by build-automation):**
+1. Investigate - Run troubleshooter agent
+2. Show build log - Display last 100 lines
+3. Show code - Display source files with errors
+4. Wait - User fixes manually, says "retry build"
+
+**Build directory location:**
+- ✅ Correct: `~/Developer/plugin-freedom-system/build/`
+- ❌ Wrong: `~/Developer/plugin-freedom-system/plugins/${pluginName}/build/`
+
+**Why foundation-agent doesn't verify builds:**
+- Runs in fresh context with limited tools (no Bash)
+- Doesn't know build system architecture
+- Would require understanding monorepo structure
+- Separation of concerns: agents create files, build-automation compiles
+
+**Note:** Build failures are handled entirely by build-automation skill. plugin-workflow just invokes it and awaits result.
 
 ### 6. Update State Files
 

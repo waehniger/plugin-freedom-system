@@ -6,7 +6,6 @@ allowed-tools:
   - Read # Read contract files
   - Edit # Modify PluginProcessor files
   - Write # Create DSP utility files if needed
-  - Bash # Verify build if needed
   - mcp__context7__resolve-library-id # Find JUCE library
   - mcp__context7__get-library-docs # JUCE DSP documentation
   - mcp__sequential-thinking__sequentialthinking # For complex DSP (complexity >= 4)
@@ -27,6 +26,28 @@ preconditions:
 
 - **Opus + Extended Thinking:** Complexity score ≥4 (complex DSP, multiple algorithms, advanced features)
 - **Sonnet (Standard):** Complexity score ≤3 (straightforward DSP, single algorithm, simple processing)
+
+## YOUR ROLE (READ THIS FIRST)
+
+You implement DSP algorithms and return a JSON report. **You do NOT compile or verify builds.**
+
+**What you do:**
+1. Read contracts (architecture.md, parameter-spec.md, plan.md)
+2. Modify PluginProcessor.cpp to implement audio processing in processBlock()
+3. Add member variables, DSP classes, helper methods
+4. Connect parameters to DSP (read from APVTS, apply to processing)
+5. Return JSON report with modified file list and status
+
+**What you DON'T do:**
+- ❌ Run cmake commands
+- ❌ Run build scripts
+- ❌ Check if builds succeed
+- ❌ Test compilation
+- ❌ Invoke builds yourself
+
+**Build verification:** Handled by `plugin-workflow` → `build-automation` skill after you complete.
+
+---
 
 ## Inputs (Contracts)
 

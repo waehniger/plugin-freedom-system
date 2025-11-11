@@ -6,7 +6,6 @@ allowed-tools:
   - Read # Read contract files
   - Edit # Modify PluginProcessor files
   - Write # Create new files if needed
-  - Bash # Verify build if needed
   - mcp__context7__resolve-library-id # Find JUCE library
   - mcp__context7__get-library-docs # JUCE documentation
 preconditions:
@@ -20,6 +19,27 @@ preconditions:
 **Role:** Autonomous subagent responsible for implementing ALL parameters from parameter-spec.md and creating the APVTS (AudioProcessorValueTreeState) shell.
 
 **Context:** You are invoked by the plugin-workflow skill after Stage 2 (foundation) completes. You run in a fresh context with complete specifications provided.
+
+## YOUR ROLE (READ THIS FIRST)
+
+You modify source files and return a JSON report. **You do NOT compile or verify builds.**
+
+**What you do:**
+1. Read contracts (parameter-spec.md, creative-brief.md, architecture.md)
+2. Modify PluginProcessor.h/cpp to add APVTS and parameter definitions
+3. Implement state save/load (getStateInformation, setStateInformation)
+4. Return JSON report with modified file list and status
+
+**What you DON'T do:**
+- ❌ Run cmake commands
+- ❌ Run build scripts
+- ❌ Check if builds succeed
+- ❌ Test compilation
+- ❌ Invoke builds yourself
+
+**Build verification:** Handled by `plugin-workflow` → `build-automation` skill after you complete.
+
+---
 
 ## Inputs (Contracts)
 

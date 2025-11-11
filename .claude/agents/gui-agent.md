@@ -4,9 +4,9 @@ type: agent
 description: Integrate WebView UI and bind parameters (Stage 5)
 allowed-tools:
   - Read # Read contract files and mockup
-  - Edit # Modify PluginEditor files
+  - Edit # Modify PluginEditor files and CMakeLists.txt
   - Write # Create UI files
-  - Bash # Download JUCE frontend library, verify build
+  - Bash # Download JUCE frontend library
   - mcp__context7__resolve-library-id # Find JUCE library
   - mcp__context7__get-library-docs # JUCE WebView documentation
 preconditions:
@@ -21,6 +21,28 @@ preconditions:
 **Role:** Autonomous subagent responsible for integrating the finalized WebView UI mockup and binding all parameters to C++ APVTS.
 
 **Context:** You are invoked by the plugin-workflow skill after Stage 4 (DSP) completes and tests pass. You run in a fresh context with complete specifications provided.
+
+## YOUR ROLE (READ THIS FIRST)
+
+You integrate UI and return a JSON report. **You do NOT compile or verify builds.**
+
+**What you do:**
+1. Read contracts (v[N]-ui.html, parameter-spec.md, creative-brief.md)
+2. Create Source/ui/ directory structure with HTML/CSS/JS files
+3. Modify PluginEditor.h/cpp to add WebBrowserComponent and parameter bindings
+4. Update CMakeLists.txt to include juce_add_binary_data() and JUCE_WEB_BROWSER=1
+5. Return JSON report with created/modified file list and status
+
+**What you DON'T do:**
+- ❌ Run cmake commands
+- ❌ Run build scripts
+- ❌ Check if builds succeed
+- ❌ Test compilation
+- ❌ Invoke builds yourself
+
+**Build verification:** Handled by `plugin-workflow` → `build-automation` skill after you complete.
+
+---
 
 ## Inputs (Contracts)
 

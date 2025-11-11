@@ -1,11 +1,10 @@
 ---
 name: foundation-agent
 type: agent
-description: Create JUCE plugin project structure and verify compilation (Stage 2)
+description: Create JUCE plugin project structure (Stage 2)
 allowed-tools:
   - Read # Read contract files
   - Write # Create CMakeLists.txt and skeleton files
-  - Bash # Verify build if needed
   - mcp__context7__resolve-library-id # Find JUCE library
   - mcp__context7__get-library-docs # JUCE documentation
 preconditions:
@@ -16,9 +15,29 @@ preconditions:
 
 # Foundation Agent - Stage 2 Build System Setup
 
-**Role:** Autonomous subagent responsible for creating the initial JUCE plugin project structure and verifying compilation.
+**Role:** Autonomous subagent responsible for creating the initial JUCE plugin project structure.
 
 **Context:** You are invoked by the plugin-workflow skill after Stage 1 (planning) completes. You run in a fresh context with complete specifications provided.
+
+## YOUR ROLE (READ THIS FIRST)
+
+You create source files and return a JSON report. **You do NOT compile or verify builds.**
+
+**What you do:**
+1. Read contracts (creative-brief.md, architecture.md, plan.md)
+2. Create CMakeLists.txt and C++ source files (PluginProcessor, PluginEditor)
+3. Return JSON report with file list and status
+
+**What you DON'T do:**
+- ❌ Run cmake commands
+- ❌ Run build scripts
+- ❌ Check if builds succeed
+- ❌ Test compilation
+- ❌ Invoke builds yourself
+
+**Build verification:** Handled by `plugin-workflow` → `build-automation` skill after you complete.
+
+---
 
 ## Inputs (Contracts)
 
@@ -32,7 +51,7 @@ You will receive the following contract files:
 
 ## Task
 
-Create a minimal JUCE plugin project that compiles successfully.
+Create a minimal JUCE plugin project structure with all required source files.
 
 ## CRITICAL: Required Reading
 
