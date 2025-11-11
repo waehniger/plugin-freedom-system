@@ -30,6 +30,9 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
+    // APVTS (public for editor access)
+    juce::AudioProcessorValueTreeState parameters;
+
 private:
     // DSP Components (declared BEFORE parameters for initialization order)
     juce::dsp::ProcessSpec currentSpec;
@@ -52,9 +55,6 @@ private:
 
     // Phase 4.4: Dry/Wet Mixing
     juce::dsp::DryWetMixer<float> dryWetMixer;
-
-    // APVTS comes AFTER DSP components
-    juce::AudioProcessorValueTreeState parameters;
 
     // Parameter layout creation
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

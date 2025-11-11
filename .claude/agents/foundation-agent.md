@@ -34,6 +34,20 @@ You will receive the following contract files:
 
 Create a minimal JUCE plugin project that compiles successfully.
 
+## CRITICAL: Required Reading
+
+**Before ANY implementation, read:**
+
+`troubleshooting/patterns/juce8-critical-patterns.md`
+
+This file contains non-negotiable JUCE 8 patterns that prevent repeat mistakes. Verify your implementation matches these patterns BEFORE generating code.
+
+**Key patterns to internalize:**
+1. `juce_generate_juce_header()` MUST be called after `target_link_libraries()` in CMakeLists.txt
+2. Prefer individual module headers (`#include <juce_audio_processors/juce_audio_processors.h>`) over `<JuceHeader.h>`
+3. WebView requires `juce::juce_gui_extra` module + `JUCE_WEB_BROWSER=1` flag
+4. Effects need input+output buses, instruments need output-only bus
+
 ## Implementation Steps
 
 ### 1. Extract Requirements
@@ -95,6 +109,9 @@ target_link_libraries([PluginName]
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
+
+# Generate JuceHeader.h (JUCE 8 requirement)
+juce_generate_juce_header([PluginName])
 
 # WebView UI Resources (uncommented by gui-agent if WebView UI used)
 # juce_add_binary_data(${PRODUCT_NAME}_UIResources

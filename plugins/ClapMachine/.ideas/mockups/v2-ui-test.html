@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClapMachine UI Test v2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background: linear-gradient(135deg, #b5a58b 0%, #a89878 100%);
+            position: relative;
+        }
+
+        /* Noise texture overlay */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="1.5" numOctaves="4"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="0.15"/></svg>');
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #plugin-container {
+            width: 800px;
+            height: 600px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Corner screws */
+        .screw {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #8a7d6b, #5a4d3b);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5), 0 1px 1px rgba(255,255,255,0.3);
+        }
+
+        .screw::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 1px;
+            background: rgba(0,0,0,0.6);
+        }
+
+        .screw::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(90deg);
+            width: 8px;
+            height: 1px;
+            background: rgba(0,0,0,0.6);
+        }
+
+        .screw.top-left { top: 15px; left: 15px; }
+        .screw.top-right { top: 15px; right: 15px; }
+        .screw.bottom-left { bottom: 15px; left: 15px; }
+        .screw.bottom-right { bottom: 15px; right: 15px; }
+
+        /* Header section */
+        .header {
+            height: 100px;
+            padding: 20px 30px;
+            position: relative;
+        }
+
+        .title {
+            font-weight: 300;
+            font-size: 18px;
+            letter-spacing: 12px;
+            color: #4a3d2a;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        /* Waveform display */
+        .waveform-container {
+            width: 740px;
+            height: 60px;
+            background: linear-gradient(180deg, #8a7d6b 0%, #7a6d5b 100%);
+            border-radius: 4px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .waveform-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><filter id="noise2"><feTurbulence type="fractalNoise" baseFrequency="2.0" numOctaves="3"/></filter><rect width="100%" height="100%" filter="url(%23noise2)" opacity="0.12"/></svg>');
+            pointer-events: none;
+        }
+
+        #waveform-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Main panels section */
+        .main-panels {
+            height: 410px;
+            display: flex;
+        }
+
+        .panel {
+            flex: 1;
+            background: #9d9078;
+            position: relative;
+            padding: 20px 0;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><filter id="noise3"><feTurbulence type="fractalNoise" baseFrequency="1.8" numOctaves="4"/></filter><rect width="100%" height="100%" filter="url(%23noise3)" opacity="0.15"/></svg>');
+            pointer-events: none;
+        }
+
+        .panel-label {
+            font-weight: 300;
+            font-size: 11px;
+            letter-spacing: 8px;
+            color: #4a3d2a;
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Control positioning - absolute for precise grid alignment */
+        .control {
+            position: absolute;
+            z-index: 1;
+        }
+
+        /* Knob container - uniform size */
+        .knob-container {
+            width: 100px;
+            text-align: center;
+        }
+
+        .knob {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+            margin: 0 auto;
+            background: radial-gradient(circle at 35% 35%, #8a7d6b, #5a4d3b);
+            box-shadow:
+                0 4px 8px rgba(0,0,0,0.3),
+                inset 0 -2px 4px rgba(0,0,0,0.2),
+                inset 0 2px 2px rgba(255,255,255,0.1);
+        }
+
+        .knob.brown {
+            background: radial-gradient(circle at 35% 35%, #7a6550, #68543e);
+        }
+
+        .knob.orange {
+            background: radial-gradient(circle at 35% 35%, #96683e, #7d5530);
+        }
+
+        .knob.green {
+            background: radial-gradient(circle at 35% 35%, #6d7a5e, #5b684c);
+        }
+
+        .knob::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><filter id="knobNoise"><feTurbulence type="fractalNoise" baseFrequency="2.5" numOctaves="3"/></filter><rect width="100%" height="100%" filter="url(%23knobNoise)" opacity="0.18"/></svg>');
+        }
+
+        .knob-pointer {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            width: 3px;
+            height: 25%;
+            background: rgba(255,255,255,0.8);
+            transform-origin: bottom center;
+            transform: translateX(-50%);
+            border-radius: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .knob-label {
+            font-weight: 300;
+            font-size: 10px;
+            letter-spacing: 8px;
+            color: #4a3d2a;
+            text-transform: uppercase;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .knob-value {
+            font-weight: 400;
+            font-size: 11px;
+            color: #3a2d1a;
+            margin-top: 4px;
+            text-align: center;
+        }
+
+        /* Three-way switch - uniform size with knobs */
+        .switch-container {
+            width: 100px;
+            text-align: center;
+        }
+
+        .three-way-switch {
+            width: 65px;
+            height: 85px;
+            background: linear-gradient(180deg, #5a4d3b 0%, #4a3d2b 100%);
+            border-radius: 8px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+            position: relative;
+            cursor: pointer;
+            padding: 5px;
+            margin: 0 auto;
+        }
+
+        .switch-indicator {
+            width: 55px;
+            height: 22px;
+            background: radial-gradient(circle at 35% 35%, #d97634, #b85520);
+            border-radius: 4px;
+            position: absolute;
+            left: 5px;
+            transition: top 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        .switch-labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            padding: 8px 0;
+        }
+
+        .switch-option {
+            font-size: 9px;
+            font-weight: 400;
+            color: #b5a58b;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        .switch-label {
+            font-weight: 300;
+            font-size: 10px;
+            letter-spacing: 8px;
+            color: #4a3d2a;
+            text-transform: uppercase;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Mix/Output strip */
+        .mix-output {
+            height: 90px;
+            background: linear-gradient(180deg, #a89878 0%, #988868 100%);
+            padding: 0;
+            position: relative;
+        }
+
+        .mix-output::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><filter id="noise4"><feTurbulence type="fractalNoise" baseFrequency="1.5" numOctaves="4"/></filter><rect width="100%" height="100%" filter="url(%23noise4)" opacity="0.15"/></svg>');
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <div id="plugin-container">
+        <!-- Corner screws -->
+        <div class="screw top-left"></div>
+        <div class="screw top-right"></div>
+        <div class="screw bottom-left"></div>
+        <div class="screw bottom-right"></div>
+
+        <!-- Header -->
+        <div class="header">
+            <div class="title">CLAPMACHINE</div>
+            <div class="waveform-container">
+                <canvas id="waveform-canvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Main panels -->
+        <div class="main-panels">
+            <!-- FLAM panel -->
+            <div class="panel flam-panel">
+                <div class="panel-label">FLAM</div>
+
+                <!-- Row 1: SPREAD, LAYERS, WIDTH at y=150 -->
+                <!-- SPREAD at x=70 (centered, so left edge at 70-50=20) -->
+                <div class="control knob-container" style="left: 20px; top: 30px;">
+                    <div class="knob brown" data-param="FLAM_TIMING" data-min="0" data-max="100" data-default="15" data-unit="ms">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">SPREAD</div>
+                    <div class="knob-value">15 ms</div>
+                </div>
+
+                <!-- LAYERS at x=190 (centered, so left edge at 190-50=140) -->
+                <div class="control knob-container" style="left: 140px; top: 30px;">
+                    <div class="knob brown" data-param="FLAM_LAYERS" data-min="2" data-max="5" data-default="3" data-unit="" data-stepped="true">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">LAYERS</div>
+                    <div class="knob-value">3</div>
+                </div>
+
+                <!-- WIDTH at x=310 (centered, so left edge at 310-50=260) -->
+                <div class="control knob-container" style="left: 260px; top: 30px;">
+                    <div class="knob brown" data-param="FLAM_WIDTH" data-min="0" data-max="100" data-default="50" data-unit="%">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">WIDTH</div>
+                    <div class="knob-value">50 %</div>
+                </div>
+
+                <!-- Row 2: MODE, CUTOFF, RESONANCE at y=300 (relative to panel start, so 180px from top) -->
+                <!-- MODE at x=70 (centered, so left edge at 70-50=20) -->
+                <div class="control switch-container" style="left: 20px; top: 180px;">
+                    <div class="three-way-switch" data-param="FLAM_FILTER_MODE" data-options="LP,BP,HP" data-default="0">
+                        <div class="switch-indicator" style="top: 5px;"></div>
+                        <div class="switch-labels">
+                            <span class="switch-option">LP</span>
+                            <span class="switch-option">BP</span>
+                            <span class="switch-option">HP</span>
+                        </div>
+                    </div>
+                    <div class="switch-label">MODE</div>
+                </div>
+
+                <!-- CUTOFF at x=190 (centered, so left edge at 190-50=140) -->
+                <div class="control knob-container" style="left: 140px; top: 180px;">
+                    <div class="knob green" data-param="FLAM_FILTER_CUTOFF" data-min="20" data-max="20000" data-default="8000" data-unit="Hz" data-skew="0.3">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">CUTOFF</div>
+                    <div class="knob-value">8000 Hz</div>
+                </div>
+
+                <!-- RESONANCE at x=310 (centered, so left edge at 310-50=260) -->
+                <div class="control knob-container" style="left: 260px; top: 180px;">
+                    <div class="knob green" data-param="FLAM_FILTER_RESONANCE" data-min="0" data-max="100" data-default="10" data-unit="%">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">RESONANCE</div>
+                    <div class="knob-value">10 %</div>
+                </div>
+            </div>
+
+            <!-- BODY panel -->
+            <div class="panel body-panel">
+                <div class="panel-label">BODY</div>
+
+                <!-- Row 1: NOISE, TONE, DECAY at y=150 -->
+                <!-- NOISE at x=470 (but relative to panel start at 400px, so 70px from left) -->
+                <div class="control switch-container" style="left: 20px; top: 30px;">
+                    <div class="three-way-switch" data-param="BODY_NOISE_TYPE" data-options="WHITE,PINK,BROWN" data-default="1">
+                        <div class="switch-indicator" style="top: 30px;"></div>
+                        <div class="switch-labels">
+                            <span class="switch-option">WHT</span>
+                            <span class="switch-option">PNK</span>
+                            <span class="switch-option">BRN</span>
+                        </div>
+                    </div>
+                    <div class="switch-label">NOISE</div>
+                </div>
+
+                <!-- TONE at x=590 (relative to panel, 190px from left) -->
+                <div class="control knob-container" style="left: 140px; top: 30px;">
+                    <div class="knob orange" data-param="BODY_TONE" data-min="0" data-max="100" data-default="50" data-unit="%">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">TONE</div>
+                    <div class="knob-value">50 %</div>
+                </div>
+
+                <!-- DECAY at x=710 (relative to panel, 310px from left) -->
+                <div class="control knob-container" style="left: 260px; top: 30px;">
+                    <div class="knob orange" data-param="BODY_DECAY" data-min="10" data-max="2000" data-default="200" data-unit="ms" data-skew="0.3">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">DECAY</div>
+                    <div class="knob-value">200 ms</div>
+                </div>
+
+                <!-- Row 2: MODE, CUTOFF, RESONANCE at y=300 -->
+                <div class="control switch-container" style="left: 20px; top: 180px;">
+                    <div class="three-way-switch" data-param="BODY_FILTER_MODE" data-options="LP,BP,HP" data-default="0">
+                        <div class="switch-indicator" style="top: 5px;"></div>
+                        <div class="switch-labels">
+                            <span class="switch-option">LP</span>
+                            <span class="switch-option">BP</span>
+                            <span class="switch-option">HP</span>
+                        </div>
+                    </div>
+                    <div class="switch-label">MODE</div>
+                </div>
+
+                <div class="control knob-container" style="left: 140px; top: 180px;">
+                    <div class="knob green" data-param="BODY_FILTER_CUTOFF" data-min="20" data-max="20000" data-default="5000" data-unit="Hz" data-skew="0.3">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">CUTOFF</div>
+                    <div class="knob-value">5000 Hz</div>
+                </div>
+
+                <div class="control knob-container" style="left: 260px; top: 180px;">
+                    <div class="knob green" data-param="BODY_FILTER_RESONANCE" data-min="0" data-max="100" data-default="5" data-unit="%">
+                        <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-label">RESONANCE</div>
+                    <div class="knob-value">5 %</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mix/Output strip - 4 knobs at y=520, x=[110, 280, 450, 620] -->
+        <div class="mix-output">
+            <div class="control knob-container" style="left: 60px; top: 10px;">
+                <div class="knob brown" data-param="MIX_BALANCE" data-min="0" data-max="100" data-default="50" data-unit="%">
+                    <div class="knob-pointer"></div>
+                </div>
+                <div class="knob-label">BALANCE</div>
+                <div class="knob-value">50 %</div>
+            </div>
+
+            <div class="control knob-container" style="left: 230px; top: 10px;">
+                <div class="knob brown" data-param="MIX_DRIVE" data-min="0" data-max="100" data-default="0" data-unit="%">
+                    <div class="knob-pointer"></div>
+                </div>
+                <div class="knob-label">DRIVE</div>
+                <div class="knob-value">0 %</div>
+            </div>
+
+            <div class="control knob-container" style="left: 400px; top: 10px;">
+                <div class="knob brown" data-param="MIX_PITCH" data-min="-24" data-max="24" data-default="0" data-unit="st">
+                    <div class="knob-pointer"></div>
+                </div>
+                <div class="knob-label">PITCH</div>
+                <div class="knob-value">0 st</div>
+            </div>
+
+            <div class="control knob-container" style="left: 570px; top: 10px;">
+                <div class="knob brown" data-param="OUTPUT_LEVEL" data-min="-60" data-max="0" data-default="-6" data-unit="dB">
+                    <div class="knob-pointer"></div>
+                </div>
+                <div class="knob-label">OUTPUT</div>
+                <div class="knob-value">-6 dB</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock parameter state
+        const parameterState = {};
+
+        // Initialize all knobs
+        document.querySelectorAll('.knob').forEach(knob => {
+            const param = knob.dataset.param;
+            const defaultValue = parseFloat(knob.dataset.default);
+            parameterState[param] = defaultValue;
+
+            let isDragging = false;
+            let startY = 0;
+            let startValue = defaultValue;
+
+            knob.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startY = e.clientY;
+                startValue = parameterState[param];
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                const min = parseFloat(knob.dataset.min);
+                const max = parseFloat(knob.dataset.max);
+                const skew = parseFloat(knob.dataset.skew) || 1.0;
+                const stepped = knob.dataset.stepped === 'true';
+                const delta = (startY - e.clientY) * 0.5;
+
+                let newValue = startValue + (delta / 100) * (max - min);
+                newValue = Math.max(min, Math.min(max, newValue));
+
+                if (stepped) {
+                    newValue = Math.round(newValue);
+                }
+
+                parameterState[param] = newValue;
+                updateKnobDisplay(knob, newValue);
+                updateWaveform();
+
+                console.log(`${param} = ${newValue.toFixed(2)}`);
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        });
+
+        // Initialize all switches
+        document.querySelectorAll('.three-way-switch').forEach(switchEl => {
+            const param = switchEl.dataset.param;
+            const options = switchEl.dataset.options.split(',');
+            let currentIndex = parseInt(switchEl.dataset.default);
+            parameterState[param] = options[currentIndex];
+
+            switchEl.addEventListener('click', () => {
+                currentIndex = (currentIndex + 1) % options.length;
+                parameterState[param] = options[currentIndex];
+
+                const indicator = switchEl.querySelector('.switch-indicator');
+                indicator.style.top = `${5 + currentIndex * 27}px`;
+
+                console.log(`${param} = ${options[currentIndex]}`);
+                updateWaveform();
+            });
+        });
+
+        function updateKnobDisplay(knob, value) {
+            const unit = knob.dataset.unit;
+            const min = parseFloat(knob.dataset.min);
+            const max = parseFloat(knob.dataset.max);
+
+            const percent = (value - min) / (max - min);
+            const rotation = -135 + (percent * 270);
+
+            const pointer = knob.querySelector('.knob-pointer');
+            pointer.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+
+            const valueDisplay = knob.parentElement.querySelector('.knob-value');
+            const displayValue = Math.abs(value) < 1000 ? value.toFixed(value % 1 === 0 ? 0 : 1) : value.toFixed(0);
+            valueDisplay.textContent = `${displayValue} ${unit}`;
+        }
+
+        // Waveform visualization
+        const canvas = document.getElementById('waveform-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 740;
+        canvas.height = 60;
+
+        function updateWaveform() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const flamLayers = Math.round(parameterState['FLAM_LAYERS'] || 3);
+            const flamSpread = parameterState['FLAM_TIMING'] || 15;
+            const bodyDecay = parameterState['BODY_DECAY'] || 200;
+            const balance = (parameterState['MIX_BALANCE'] || 50) / 100;
+
+            // Draw flam transients (blue-teal)
+            ctx.fillStyle = 'rgba(74, 158, 255, ' + (1 - balance * 0.5) + ')';
+            for (let i = 0; i < flamLayers; i++) {
+                const x = 20 + (i * flamSpread * 0.5);
+                const height = 40 - (i * 5);
+                ctx.fillRect(x, (60 - height) / 2, 3, height);
+            }
+
+            // Draw body/noise tail (orange-amber)
+            ctx.fillStyle = 'rgba(217, 118, 52, ' + (balance * 0.8 + 0.2) + ')';
+            const tailStart = 20 + (flamLayers * flamSpread * 0.5) + 10;
+            const tailLength = Math.min(bodyDecay * 0.3, 500);
+
+            ctx.beginPath();
+            ctx.moveTo(tailStart, 30);
+            for (let x = tailStart; x < tailStart + tailLength; x += 2) {
+                const progress = (x - tailStart) / tailLength;
+                const amplitude = (1 - progress) * 25;
+                const noise = (Math.random() - 0.5) * amplitude;
+                ctx.lineTo(x, 30 + noise);
+            }
+            ctx.lineTo(tailStart + tailLength, 30);
+            ctx.strokeStyle = 'rgba(217, 118, 52, ' + (balance * 0.8 + 0.2) + ')';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Initialize displays
+        document.querySelectorAll('.knob').forEach(knob => {
+            const defaultValue = parseFloat(knob.dataset.default);
+            updateKnobDisplay(knob, defaultValue);
+        });
+
+        updateWaveform();
+
+        console.log('ClapMachine UI Test v2 loaded. Precise grid alignment with uniform control sizing.');
+        console.log('Parameter state:', parameterState);
+    </script>
+</body>
+</html>
