@@ -1,15 +1,17 @@
 ---
-problem_type: ui_behavior
-component: rotary_knobs
+plugin: JUCE
+date: 2025-11-10
+problem_type: ui_layout
+component: webview
 symptoms:
   - Knob lighting/shadows rotate with the control
   - Highlights move as knob turns
   - Unrealistic lighting behavior
   - Visual confusion during interaction
-root_cause: Static lighting effects placed on rotating layer instead of fixed layer
-severity: medium
-tags: [ui, webview, css, lighting, knobs, visual-design]
-created: 2025-11-10
+root_cause: logic_error
+resolution_type: code_fix
+severity: minor
+tags: [ui, webview, css, lighting, knobs, visual-design, layers]
 ---
 
 # Rotating Lighting on Knobs (Unrealistic Light Behavior)
