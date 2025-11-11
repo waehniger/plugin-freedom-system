@@ -227,7 +227,7 @@ Algorithmic reverb with warm tape saturation applied only to the wet signal, plu
 ### FlutterVerb
 
 **Status:** 📦 **Installed**
-**Version:** 1.0.0
+**Version:** 1.0.1
 **Created:** 2025-11-11
 **Completed:** 2025-11-11
 **Installed:** 2025-11-11
@@ -303,6 +303,7 @@ Tape-driven plate reverb with extreme wow and flutter modulation for textured, a
 - **2025-11-11 (Stage 5.3):** VU meter complete - real-time output level display with ballistics (fast attack, slow release)
 - **2025-11-11 (Stage 6):** Validation complete - 7 factory presets created, CHANGELOG.md generated, ready for installation
 - **2025-11-11 (v1.0.0):** Installed to system folders (VST3 + AU)
+- **2025-11-11 (v1.0.1):** Bug fixes - decay independence, drive latency compensation, age scaling, MOD_MODE toggle, VU meter
 
 **Known Issues:**
 - None
