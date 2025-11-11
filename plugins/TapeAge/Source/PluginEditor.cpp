@@ -16,7 +16,12 @@ void TapeAgeAudioProcessorEditor::paint(juce::Graphics& g)
 
     g.setColour(juce::Colours::white);
     g.setFont(24.0f);
-    g.drawFittedText("TAPE AGE - Stage 2", getLocalBounds(), juce::Justification::centred, 1);
+    g.drawFittedText("TAPE AGE - Stage 3", getLocalBounds(), juce::Justification::centred, 1);
+
+    g.setFont(14.0f);
+    g.drawFittedText("3 parameters implemented",
+                     getLocalBounds().reduced(20).removeFromBottom(30),
+                     juce::Justification::centred, 1);
 }
 
 void TapeAgeAudioProcessorEditor::resized()
