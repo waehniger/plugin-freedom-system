@@ -243,12 +243,12 @@ visual_effects:
     warm_glow: true
 
 typography:
-  primary_font: "'Courier New', 'Courier', monospace"
+  primary_font: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
   title_letter_spacing: "0.4em"
   label_letter_spacing: "0.3em"
-  title_weight: 700
-  label_weight: 700
-  technical_appearance: true
+  title_weight: 300
+  label_weight: 500
+  technical_appearance: false
 
 metadata:
   version: 3
