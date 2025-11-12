@@ -31,6 +31,7 @@
 | FlutterVerb | 📦 Installed | 1.0.3 | 2025-11-12 |
 | LushVerb | 🚧 Stage 1 | - | 2025-11-11 |
 | OrganicHats | 📦 Installed | 1.0.0 | 2025-11-12 |
+| DrumRoulette | 💡 Ideated | - | 2025-11-12 |
 
 ### GainKnob
 
@@ -495,6 +496,55 @@ Global:
 - **2025-11-12 (Stage 5.3):** Power LED and polish (pulse animation, final styling)
 - **2025-11-12 (Stage 6):** Validation complete - Build verified, CHANGELOG created
 - **2025-11-12 (v1.0.0):** Installed to system folders (VST3 + AU)
+
+**Known Issues:**
+- None
+
+**Last Updated:** 2025-11-12
+
+### DrumRoulette
+
+**Status:** 🚧 **Stage 0**
+**Created:** 2025-11-12
+**Type:** Instrument (Drum Sampler)
+
+**Description:**
+Eight-slot drum sampler with folder-based randomization and mixer-style interface. Each slot connects to a folder for random sample selection, with per-channel lock controls and multi-output routing.
+
+**Parameters (73 total):**
+
+Global:
+- Randomize All: Button (randomize all unlocked slots)
+
+Per-Slot (×8):
+- Folder Path: File Browser
+- Randomize: Button (pick random sample from folder)
+- Lock: Toggle (exclude from global randomization)
+- Volume: Fader (-inf to +6dB), default 0dB
+- Decay: 10ms-2s, default 500ms (envelope decay, sustain=0)
+- Attack: 0-50ms, default 1ms (percussive shaping)
+- Tilt Filter: -12dB to +12dB, default 0dB (brightness, pivot at 1kHz)
+- Pitch: ±12 semitones, default 0
+- Solo: Toggle, default Off
+- Mute: Toggle, default Off
+
+**DSP:** Sample playback engine using juce::Synthesiser with 8 custom voices. ADSR envelope (sustain=0). Tilt filter (cascaded low/high shelving filters at 1kHz pivot). Pitch shifting via variable-rate resampling with linear interpolation. True random file selection with recursive folder scanning. Multi-output routing (18 channels: 2 main + 16 individual).
+
+**GUI:** Eight vertical channel strips (mixer console style). LED-style trigger indicators. Color-coded lock icons (grey=unlocked, highlighted=locked). Global randomize button. Vintage hardware mixer aesthetic with brushed metal texture.
+
+**MIDI:** C1-G1 (8 chromatic notes), velocity-sensitive.
+
+**Audio Routing:** Automatic multi-output (stereo main + 8 individual stereo outputs = 18 total).
+
+**Folder Handling:**
+- Recursive subfolder scanning
+- True random selection (any file each time)
+- Error message on empty folders
+- Manual folder selection each session
+
+**Lifecycle Timeline:**
+- **2025-11-12:** Creative brief completed
+- **2025-11-12 (Stage 0):** Research completed - DSP architecture documented
 
 **Known Issues:**
 - None
