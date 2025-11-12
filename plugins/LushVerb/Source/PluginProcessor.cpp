@@ -92,6 +92,33 @@ void LushVerbAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBloc
     leftLFOPhase = 0.0f;
     rightLFOPhase = 0.0f;
 
+    // Phase 4.3: Prepare shimmer pitch shifter (FFT-based)
+    // Allocate FFT engine
+    fft = std::make_unique<juce::dsp::FFT>(fftOrder);
+
+    // Allocate buffers (real-time safety: all allocation in prepareToPlay)
+    const int numChannels = getTotalNumOutputChannels();
+    fftInputBuffer.setSize(numChannels, fftSize);
+    fftOutputBuffer.setSize(numChannels, fftSize);
+    overlapAddBuffer.setSize(numChannels, fftSize);
+
+    // Allocate FFT data buffers (2 * fftSize for complex data: real + imaginary)
+    fftData.allocate(fftSize * 2, true);
+    shiftedFFTData.allocate(fftSize * 2, true);
+
+    // Allocate and pre-calculate Hann window
+    hannWindow.allocate(fftSize, true);
+    for (int i = 0; i < fftSize; ++i)
+    {
+        hannWindow[i] = 0.5f * (1.0f - std::cos(juce::MathConstants<float>::twoPi * static_cast<float>(i) / static_cast<float>(fftSize)));
+    }
+
+    // Clear buffers
+    fftInputBuffer.clear();
+    fftOutputBuffer.clear();
+    overlapAddBuffer.clear();
+    hopCounter = 0;
+
     // Reset components to initial state
     reverb.reset();
     dryWetMixer.reset();
@@ -114,11 +141,95 @@ void LushVerbAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     // Read parameters (atomic, real-time safe)
     auto* sizeParam = parameters.getRawParameterValue("SIZE");
     auto* dampingParam = parameters.getRawParameterValue("DAMPING");
+    auto* shimmerParam = parameters.getRawParameterValue("SHIMMER");
     auto* mixParam = parameters.getRawParameterValue("MIX");
 
     float sizeValue = sizeParam->load();       // 0.5-20.0s
     float dampingValue = dampingParam->load(); // 0-100%
+    float shimmerValue = shimmerParam->load(); // 0-100%
     float mixValue = mixParam->load();         // 0-100%
+
+    // Phase 4.3: Apply shimmer pitch shifting (pre-reverb routing)
+    const int numSamples = buffer.getNumSamples();
+    const int numChannels = buffer.getNumChannels();
+    const float shimmerAmount = shimmerValue / 100.0f; // Normalize to 0.0-1.0
+
+    // Only process shimmer if amount > 0 (bypass optimization)
+    if (shimmerAmount > 0.001f)
+    {
+        // Process each channel independently
+        for (int channel = 0; channel < numChannels; ++channel)
+        {
+            auto* channelData = buffer.getWritePointer(channel);
+            auto* inputData = fftInputBuffer.getWritePointer(channel);
+            auto* overlapData = overlapAddBuffer.getWritePointer(channel);
+
+            // Process each sample
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                // Store input sample in FFT buffer with window
+                inputData[hopCounter] = channelData[sample] * hannWindow[hopCounter];
+
+                // Output from overlap-add buffer
+                float pitchShiftedSample = overlapData[hopCounter];
+                overlapData[hopCounter] = 0.0f; // Clear for next overlap
+
+                // Mix dry and pitch-shifted signal based on shimmer amount
+                channelData[sample] = channelData[sample] * (1.0f - shimmerAmount) + pitchShiftedSample * shimmerAmount;
+
+                // Increment hop counter
+                hopCounter++;
+
+                // When hop is full, perform FFT pitch shift
+                if (hopCounter >= hopSize)
+                {
+                    // Copy windowed input to FFT buffer
+                    for (int i = 0; i < fftSize; ++i)
+                    {
+                        fftData[i * 2] = inputData[i];     // Real part
+                        fftData[i * 2 + 1] = 0.0f;         // Imaginary part
+                    }
+
+                    // Forward FFT
+                    fft->performRealOnlyForwardTransform(fftData, true);
+
+                    // Pitch shift by +1 octave (frequency doubling)
+                    // Method: Read every other bin (bin stretching)
+                    // Clear shifted buffer first
+                    for (int i = 0; i < fftSize * 2; ++i)
+                        shiftedFFTData[i] = 0.0f;
+
+                    for (int i = 0; i < fftSize / 2; ++i)
+                    {
+                        int sourceIndex = i / 2; // Half the frequency bins for octave up
+                        if (sourceIndex < fftSize / 4)
+                        {
+                            shiftedFFTData[i * 2] = fftData[sourceIndex * 2];         // Real
+                            shiftedFFTData[i * 2 + 1] = fftData[sourceIndex * 2 + 1]; // Imaginary
+                        }
+                    }
+
+                    // Inverse FFT
+                    fft->performRealOnlyInverseTransform(shiftedFFTData);
+
+                    // Window and overlap-add
+                    for (int i = 0; i < fftSize; ++i)
+                    {
+                        overlapData[i] += shiftedFFTData[i * 2] * hannWindow[i] / (float)fftSize;
+                    }
+
+                    // Shift input buffer (overlap)
+                    for (int i = 0; i < fftSize - hopSize; ++i)
+                    {
+                        inputData[i] = inputData[i + hopSize];
+                    }
+
+                    // Reset hop counter
+                    hopCounter = 0;
+                }
+            }
+        }
+    }
 
     // Map SIZE to reverb roomSize (0.3-1.0 range)
     // SIZE parameter: 0.5s (small) → 20.0s (huge)
@@ -152,9 +263,6 @@ void LushVerbAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     reverb.process(context);
 
     // Phase 4.2: Apply modulation to reverb tail (post-reverb, pre-dry/wet mix)
-    const int numSamples = buffer.getNumSamples();
-    const int numChannels = buffer.getNumChannels();
-
     // LFO frequencies (hardcoded per spec)
     const float leftLFOFreq = 0.3f;   // Hz
     const float rightLFOFreq = 0.5f;  // Hz

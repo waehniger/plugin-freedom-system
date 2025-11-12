@@ -41,6 +41,20 @@ private:
     float rightLFOPhase = 0.0f;
     double currentSampleRate = 44100.0;
 
+    // Phase 4.3: Shimmer Pitch Shifter (FFT-based)
+    static constexpr int fftOrder = 11;       // 2^11 = 2048 samples
+    static constexpr int fftSize = 1 << fftOrder;
+    static constexpr int hopSize = fftSize / 4; // 512 samples (4x overlap)
+
+    std::unique_ptr<juce::dsp::FFT> fft;
+    juce::AudioBuffer<float> fftInputBuffer;
+    juce::AudioBuffer<float> fftOutputBuffer;
+    juce::AudioBuffer<float> overlapAddBuffer;
+    juce::HeapBlock<float> hannWindow;
+    juce::HeapBlock<float> fftData;
+    juce::HeapBlock<float> shiftedFFTData;
+    int hopCounter = 0;
+
     // APVTS comes AFTER DSP components
     juce::AudioProcessorValueTreeState parameters;
 
