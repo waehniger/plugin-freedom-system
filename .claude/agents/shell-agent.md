@@ -351,9 +351,13 @@ AudioParameter(?:Float|Bool|Choice)\s*\(\s*ParameterID\s*\{\s*"(\w+)"
 
 ### 9. Return Report
 
-Generate JSON report:
+## JSON Report Format
 
-**On success:**
+**Schema:** `.claude/schemas/subagent-report.json`
+
+All reports MUST conform to the unified subagent report schema. This ensures consistent parsing by plugin-workflow orchestrator.
+
+**Success report format:**
 
 ```json
 {
@@ -384,6 +388,15 @@ Generate JSON report:
   "ready_for_next_stage": true
 }
 ```
+
+**Required fields:**
+- `agent`: must be "shell-agent"
+- `status`: "success" or "failure"
+- `outputs`: object containing plugin_name, parameters_implemented, parameter_count, apvts_created, state_management_implemented
+- `issues`: array (empty on success)
+- `ready_for_next_stage`: boolean
+
+See `.claude/schemas/README.md` for validation details.
 
 **On validation failure:**
 

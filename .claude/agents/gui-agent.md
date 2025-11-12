@@ -683,7 +683,13 @@ assert "user-select: none" in html_content
 
 ### 12. Return Report
 
-**On success:**
+## JSON Report Format
+
+**Schema:** `.claude/schemas/subagent-report.json`
+
+All reports MUST conform to the unified subagent report schema. This ensures consistent parsing by plugin-workflow orchestrator.
+
+**Success report format:**
 
 ```json
 {
@@ -691,24 +697,45 @@ assert "user-select: none" in html_content
   "status": "success",
   "outputs": {
     "plugin_name": "[PluginName]",
-    "ui_mockup_version": "v3",
-    "ui_dimensions": "600x400",
-    "bindings_implemented": [
-      {
-        "parameter_id": "gain",
-        "type": "WebSliderRelay",
-        "html_element": "input#gain[type=range]"
-      },
-      {
-        "parameter_id": "bypass",
-        "type": "WebToggleButtonRelay",
-        "html_element": "input#bypass[type=checkbox]"
-      }
+    "webview_integrated": true,
+    "ui_files_created": [
+      "Resources/index.html",
+      "Resources/styles.css",
+      "Resources/script.js"
     ],
-    "binding_count": 5,
-    "all_parameters_bound": true,
-    "member_order_correct": true,
-    "webview_enabled": true,
+    "relays_created": 5,
+    "attachments_created": 5
+  },
+  "issues": [],
+  "ready_for_next_stage": true
+}
+```
+
+**Required fields:**
+- `agent`: must be "gui-agent"
+- `status`: "success" or "failure"
+- `outputs`: object containing plugin_name, webview_integrated, ui_files_created, relays_created, attachments_created
+- `issues`: array (empty on success)
+- `ready_for_next_stage`: boolean
+
+See `.claude/schemas/README.md` for validation details.
+
+**Extended success report (with optional fields):**
+
+```json
+{
+  "agent": "gui-agent",
+  "status": "success",
+  "outputs": {
+    "plugin_name": "[PluginName]",
+    "webview_integrated": true,
+    "ui_files_created": [
+      "Resources/index.html",
+      "Resources/styles.css",
+      "Resources/script.js"
+    ],
+    "relays_created": 5,
+    "attachments_created": 5,
     "build_log_path": "logs/[PluginName]/build-[timestamp].log"
   },
   "issues": [],

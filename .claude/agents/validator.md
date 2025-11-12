@@ -440,7 +440,11 @@ This validates:
 
 ## JSON Report Format
 
-Always return JSON with this exact structure:
+**Schema:** `.claude/schemas/validator-report.json`
+
+All validation reports MUST conform to the unified validator report schema. This ensures consistent parsing by plugin-workflow orchestrator.
+
+**Report structure:**
 
 ```json
 {
@@ -459,6 +463,16 @@ Always return JSON with this exact structure:
   "continue_to_next_stage": <boolean>
 }
 ```
+
+**Required fields:**
+- `agent`: must be "validator"
+- `stage`: integer 0-6
+- `status`: "PASS" or "FAIL"
+- `checks`: array of check objects (each with name, passed, message, severity)
+- `recommendation`: string describing what to do next
+- `continue_to_next_stage`: boolean
+
+See `.claude/schemas/README.md` for validation details.
 
 ## Severity Levels
 

@@ -443,7 +443,13 @@ juce::dsp::\w+<float>\s+(\w+);
 
 ### 10. Return Report
 
-**On success (single-pass):**
+## JSON Report Format
+
+**Schema:** `.claude/schemas/subagent-report.json`
+
+All reports MUST conform to the unified subagent report schema. This ensures consistent parsing by plugin-workflow orchestrator.
+
+**Success report (single-pass):**
 
 ```json
 {
@@ -451,14 +457,39 @@ juce::dsp::\w+<float>\s+(\w+);
   "status": "success",
   "outputs": {
     "plugin_name": "[PluginName]",
-    "complexity": 2,
-    "dsp_components_implemented": [
+    "dsp_components": [
       "juce::dsp::StateVariableTPTFilter<float>",
       "juce::dsp::Gain<float>"
     ],
-    "parameters_connected": ["gain", "cutoff", "resonance", "mix"],
-    "processing_implemented": true,
-    "real_time_safe": true,
+    "processing_chain": "Input → Filter → Gain → Output"
+  },
+  "issues": [],
+  "ready_for_next_stage": true
+}
+```
+
+**Required fields:**
+- `agent`: must be "dsp-agent"
+- `status`: "success" or "failure"
+- `outputs`: object containing plugin_name, dsp_components, processing_chain
+- `issues`: array (empty on success)
+- `ready_for_next_stage`: boolean
+
+See `.claude/schemas/README.md` for validation details.
+
+**Extended success report (with optional fields):**
+
+```json
+{
+  "agent": "dsp-agent",
+  "status": "success",
+  "outputs": {
+    "plugin_name": "[PluginName]",
+    "dsp_components": [
+      "juce::dsp::StateVariableTPTFilter<float>",
+      "juce::dsp::Gain<float>"
+    ],
+    "processing_chain": "Input → Filter → Gain → Output",
     "build_log_path": "logs/[PluginName]/build-[timestamp].log"
   },
   "issues": [],

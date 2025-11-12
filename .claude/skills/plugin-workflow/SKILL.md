@@ -570,6 +570,411 @@ Workflow is successful when:
 
 ---
 
+## Decision Menu Protocol
+
+**Use AskUserQuestion tool ONLY when:**
+- NEVER in this skill - plugin-workflow is pure orchestration
+- All decisions are workflow navigation, not ideation
+
+**Use Inline Numbered Menu for:**
+- After EVERY stage completion (checkpoint gates)
+- Build failure recovery options
+- Test failure investigation options
+- Phase completion (for complex plugins)
+- Examples:
+  - "Stage 3 complete. What's next? 1) Continue to Stage 4..."
+  - "Build failed. What should I do? 1) Retry build..."
+  - "Phase 4.1 complete. 1) Continue to Phase 4.2..."
+
+**Key difference:** This skill ONLY uses inline menus. No creative decisions, only workflow navigation.
+
+**Inline menu format:**
+
+```
+✓ [Stage/Phase completion statement]
+
+What's next?
+
+1. [Continue to next stage/phase] (recommended)
+2. [Run tests] - Validate current implementation
+3. [Pause workflow] - Save progress and exit
+4. [Review changes] - Show git diff
+5. Other
+
+Choose (1-5): _
+```
+
+ALWAYS wait for user response. NEVER auto-proceed.
+
+---
+
+## Integration Contracts
+
+### Invokes: foundation-agent (Stage 2)
+
+**When:** Stage 2 (Foundation) implementation
+
+**Sends via Task tool:**
+```
+Implement Stage 2 (Foundation) for [PluginName].
+
+**Contracts:**
+- creative-brief.md: [full content]
+- architecture.md: [full content]
+- plan.md: [full content]
+
+**Required Reading:**
+[juce8-critical-patterns.md content]
+
+**Directive:** Create foundation files (PluginProcessor.h/cpp, PluginEditor.h/cpp, CMakeLists.txt).
+Return JSON report when complete.
+```
+
+**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`:
+```json
+{
+  "agent": "foundation-agent",
+  "status": "success",
+  "outputs": {
+    "plugin_name": "PluginName",
+    "source_files_created": [
+      "Source/PluginProcessor.h",
+      "Source/PluginProcessor.cpp",
+      "Source/PluginEditor.h",
+      "Source/PluginEditor.cpp",
+      "CMakeLists.txt"
+    ]
+  },
+  "issues": [],
+  "ready_for_next_stage": true
+}
+```
+
+**Error handling:**
+- Missing contract → foundation-agent returns status: "failure", orchestrator blocks progression
+- File creation error → present retry menu to user
+- Schema validation failure → log error, block progression
+
+**Contract:** foundation-agent creates files, returns report. Orchestrator validates schema, commits changes, updates state.
+
+---
+
+### Invokes: shell-agent (Stage 3)
+
+**When:** Stage 3 (Shell) implementation
+
+**Sends via Task tool:**
+```
+Implement Stage 3 (Shell) for [PluginName].
+
+**Contracts:**
+- parameter-spec.md: [full content]
+- architecture.md: [full content]
+
+**Required Reading:**
+[juce8-critical-patterns.md content]
+
+**Directive:** Implement APVTS with all parameters, state management.
+Return JSON report when complete.
+```
+
+**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`
+
+**Error handling:**
+- Parameter count mismatch → present investigation menu
+- APVTS creation failed → offer retry or manual intervention
+- Schema validation failure → block progression
+
+**Contract:** shell-agent modifies files, returns report. Orchestrator validates parameter counts match parameter-spec.md.
+
+---
+
+### Invokes: dsp-agent (Stage 4)
+
+**When:** Stage 4 (DSP) implementation
+
+**Sends via Task tool:**
+```
+Implement Stage 4 [Phase X] for [PluginName].
+
+**Contracts:**
+- architecture.md: [full content]
+- parameter-spec.md: [full content]
+- plan.md: [full content]
+
+**Required Reading:**
+[juce8-critical-patterns.md content]
+
+**Directive:** Implement DSP components and processing chain [for Phase X].
+Return JSON report when complete.
+```
+
+**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`
+
+**Error handling:**
+- Missing DSP component → dsp-agent reports in issues array
+- Real-time safety violation → warn in checkpoint menu
+- Phase incomplete → ready_for_next_stage: false, orchestrator blocks
+
+**Contract:** dsp-agent implements DSP, returns report. Orchestrator handles phase checkpoints and state updates.
+
+---
+
+### Invokes: gui-agent (Stage 5)
+
+**When:** Stage 5 (GUI) implementation
+
+**Sends via Task tool:**
+```
+Implement Stage 5 (GUI) for [PluginName].
+
+**Contracts:**
+- parameter-spec.md: [full content]
+- Mockup files: [list all v[N]-*.* files]
+
+**Required Reading:**
+[juce8-critical-patterns.md content]
+
+**Directive:** Integrate WebView UI with parameter bindings.
+Return JSON report when complete.
+```
+
+**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`
+
+**Error handling:**
+- Missing mockup → gui-agent returns error, cannot proceed
+- Relay/attachment mismatch → validate counts match parameters
+- WebView integration failed → present recovery menu
+
+**Contract:** gui-agent integrates UI, returns report. Orchestrator validates relay/attachment counts match parameter-spec.md.
+
+---
+
+### Invokes: validator (Stages 1-5)
+
+**When:** After each stage completion (optional but recommended)
+
+**Sends via Task tool:**
+```
+Validate Stage [N] completion for [PluginName].
+
+**Stage:** [N]
+**Plugin:** [PluginName]
+**Contracts:**
+- [stage-specific contracts]
+
+**Expected outputs for Stage [N]:**
+[stage-specific expected outputs]
+
+Return JSON validation report.
+```
+
+**Expects:** JSON report conforming to `.claude/schemas/validator-report.json`
+
+**Error handling:**
+- Validation failure → include in checkpoint menu, let user decide
+- Override file exists → validator handles suppression
+- Schema validation failure → log warning, continue anyway (validation is advisory)
+
+**Contract:** Validator is advisory, not blocking. Orchestrator presents validation results in checkpoint menu. User makes final decision.
+
+---
+
+### Invokes: build-automation (After stages 2-6)
+
+**When:** After stage completion to verify compilation
+
+**Sends via Skill tool:**
+```json
+{
+  "plugin_name": "PluginName",
+  "build_type": "Debug",
+  "operation": "build"
+}
+```
+
+**Expects:**
+```json
+{
+  "success": true,
+  "build_log": "logs/PluginName/build-timestamp.log",
+  "binary_path": "builds/PluginName/Debug/PluginName.vst3",
+  "warnings": 0,
+  "errors": 0
+}
+```
+
+**Error handling:**
+- Build failure → present recovery menu (retry, investigate, manual fix)
+- Missing CMakeLists.txt → check foundation stage completion
+- Compiler not found → delegate to system-setup skill
+
+**Contract:** Orchestrator NEVER builds directly. Always delegates to build-automation skill.
+
+---
+
+### Invoked by: context-resume
+
+**Receives:**
+- Plugin name (string)
+- Stage number (integer 0-6)
+- Phase (string or null)
+- Orchestration mode (boolean, must be true)
+- Handoff context (full .continue-here.md content)
+
+**Returns:**
+- Resumes at specified stage/phase
+- Executes remaining workflow
+- Presents checkpoint menus at each stage
+- Updates state files throughout
+
+**Contract:** context-resume is READ-ONLY. Orchestrator owns all state updates. context-resume only loads and routes.
+
+---
+
+### Invoked by: /implement command
+
+**Receives:**
+- Plugin name (string)
+- Entry stage (typically Stage 2, or wherever workflow paused)
+
+**Returns:**
+- Executes workflow from entry stage through Stage 6
+- Presents checkpoint menus at each stage
+- Updates PLUGINS.md to ✅ Working when complete
+
+**Contract:** Command expands to prompt that invokes this skill. Skill handles full workflow.
+
+---
+
+## Data Formats
+
+### Subagent Reports
+
+**Schema:** `.claude/schemas/subagent-report.json`
+
+**Purpose:** Standardizes stage completion reports from all subagents
+
+**Validation:**
+
+```python
+import json
+from jsonschema import validate
+
+with open('.claude/schemas/subagent-report.json') as f:
+    schema = json.load(f)
+
+validate(instance=report, schema=schema)
+```
+
+**Required fields:**
+- `agent`: string (foundation-agent, shell-agent, dsp-agent, gui-agent)
+- `status`: string (success, failure)
+- `outputs`: object (must contain plugin_name)
+- `issues`: array (empty on success)
+- `ready_for_next_stage`: boolean
+
+See `.claude/schemas/README.md` for complete schema and validation examples.
+
+---
+
+### Validator Reports
+
+**Schema:** `.claude/schemas/validator-report.json`
+
+**Purpose:** Standardizes validation reports from validator agent
+
+**Validation:**
+
+```python
+with open('.claude/schemas/validator-report.json') as f:
+    schema = json.load(f)
+
+validate(instance=report, schema=schema)
+```
+
+**Required fields:**
+- `agent`: string (always "validator")
+- `stage`: integer (0-6)
+- `status`: string (PASS, FAIL)
+- `checks`: array of check objects
+- `recommendation`: string
+- `continue_to_next_stage`: boolean
+
+---
+
+## Error Handling
+
+### Common Errors
+
+**Subagent returns invalid JSON:**
+- **Detection:** JSON parse error when reading subagent output
+- **Recovery:** Use fallback parsing strategies (extract from code blocks, partial JSON)
+- **User action:** If all parsing fails, present raw output and offer manual recovery
+
+**Schema validation failure:**
+- **Detection:** jsonschema.ValidationError when validating report
+- **Recovery:** Log specific validation error, block progression
+- **User action:** Present error details, offer to retry subagent or continue anyway (risky)
+
+**Build failure after stage:**
+- **Detection:** build-automation returns success: false
+- **Recovery:** Present build log excerpt in checkpoint menu
+- **User action:** Choose from: retry build, investigate logs, manual fix, rollback stage
+
+**State file corruption:**
+- **Detection:** YAML parse error or missing required fields in .continue-here.md
+- **Recovery:** Reconstruct from git log and PLUGINS.md
+- **User action:** Verify reconstructed state before continuing
+
+**Checkpoint step failure:**
+- **Detection:** Git commit fails, file write fails, etc.
+- **Recovery:** Log specific step failure, attempt remaining steps
+- **User action:** Present partial checkpoint status, offer manual completion
+
+### Graceful Degradation
+
+**When validator unavailable:**
+- Skip validation step
+- Log warning in checkpoint
+- Continue to present checkpoint menu
+
+**When build-automation unavailable:**
+- Fall back to direct cmake/xcodebuild (legacy mode)
+- Log warning about using legacy build
+
+**When Required Reading file missing:**
+- Log warning
+- Continue subagent invocation without Required Reading
+- May encounter known issues without pattern protection
+
+### Error Reporting Format
+
+All errors presented include:
+1. **What failed** - Specific stage/step that failed
+2. **Why it failed** - Error message or root cause
+3. **How to fix** - Actionable recovery steps
+4. **Alternative** - Other ways to proceed (pause, rollback, manual fix)
+
+Example:
+```
+ERROR: Stage 3 (Shell) failed
+
+Reason: Parameter count mismatch (expected 5, found 3)
+Missing parameters: delayTime, feedback
+
+What should I do?
+
+1. Retry Stage 3 - shell-agent will regenerate APVTS
+2. Check parameter-spec.md - Verify parameter definitions
+3. Manual fix - Edit PluginProcessor.cpp manually then continue
+4. Pause workflow - Save progress and investigate
+
+Choose (1-4): _
+```
+
+---
+
 <execution_guidance>
   <critical_reminders>
     <reminder priority="CRITICAL" ref="subagent-dispatch-only">

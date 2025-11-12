@@ -357,7 +357,13 @@ Verify files created:
 
 ### 8. Return Report
 
-Generate JSON report in this exact format:
+## JSON Report Format
+
+**Schema:** `.claude/schemas/subagent-report.json`
+
+All reports MUST conform to the unified subagent report schema. This ensures consistent parsing by plugin-workflow orchestrator.
+
+**Success report format:**
 
 ```json
 {
@@ -377,6 +383,15 @@ Generate JSON report in this exact format:
   "ready_for_next_stage": true
 }
 ```
+
+**Required fields:**
+- `agent`: must be "foundation-agent"
+- `status`: "success" or "failure"
+- `outputs`: object containing plugin_name and source_files_created
+- `issues`: array (empty on success, populated with error messages on failure)
+- `ready_for_next_stage`: boolean
+
+See `.claude/schemas/README.md` for validation details.
 
 **If file creation fails:**
 
