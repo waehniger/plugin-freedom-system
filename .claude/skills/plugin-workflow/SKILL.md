@@ -31,9 +31,16 @@ This skill orchestrates plugin implementation stages 2-6. Stages 0-1 (Research &
 
 **CRITICAL ORCHESTRATION RULES:**
 1. Stages 2-5 MUST use Task tool to invoke subagents - NEVER implement directly
-2. After EVERY subagent completion, orchestrator MUST commit, update state, and present decision menu
+2. After EVERY subagent completion (including phases 4.1, 4.2, 4.3, 5.1, 5.2), orchestrator MUST:
+   - Commit all changes with git
+   - Update .continue-here.md with current state
+   - Update PLUGINS.md status
+   - Update plan.md if phased
+   - Present numbered decision menu
+   - WAIT for user response
 3. Stage 6 can run directly in orchestrator or via validator subagent
 4. All subagents receive Required Reading (juce8-critical-patterns.md) to prevent repeat mistakes
+5. Subagents NEVER commit - they only implement and return JSON report
 
 Each stage is fully documented in its own reference file in `references/` subdirectory.
 
