@@ -4,6 +4,39 @@ All notable changes to TapeAge will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.0] - 2025-11-12
+
+### Added
+
+- **Enhanced AGE Parameter:** More extreme tape degradation at maximum settings
+  - **Increased Wow Depth:** ±25 cents pitch variation (was ±10 cents) - 2.5x more warble for noticeable vintage character while remaining musical
+  - **Dual-LFO Flutter:** Added 6Hz secondary flutter LFO at 20% depth for richer texture alongside primary 1-2Hz wow LFO
+  - **High-Frequency Rolloff:** Age-dependent treble loss simulating tape aging and head wear
+    - Age 0%: 20kHz (transparent, no effect)
+    - Age 100%: 8kHz cutoff (vintage tape character with noticeable treble loss)
+    - Exponential mapping for musical response
+  - **Increased Noise Floor:** -60dB at max age (was -80dB) - 20dB louder for more present vintage character while remaining subtle
+  - **User Impact:** AGE knob now produces more dramatic "old tape" character at high values - more pitch wobble, duller frequency response, and audible noise texture
+  - **Backward Compatibility:** Existing presets load but will sound different at high AGE values (more extreme degradation)
+
+### Technical Details
+
+- Added `flutterPhase[2]` member variable for secondary LFO state tracking
+- Added `ageFilter[2]` IIR lowpass filters (one per channel) for frequency rolloff
+- Modified processBlock wow/flutter section to combine dual LFOs before delay line modulation
+- Added high-frequency rolloff processing after wow/flutter, before dropout
+- Updated architecture.md to document v1.1.0 enhancements
+- All changes maintain real-time safety (no allocations in audio thread)
+- Filter coefficients updated per buffer, not per sample (performance optimization)
+
+### Testing Notes
+
+- Built and tested in Release mode
+- Verified increased wow depth is noticeable but musical (not excessive)
+- Confirmed high-frequency rolloff creates "old tape" character without harshness
+- Noise increase is present but not overwhelming
+- All parameters function correctly with new processing chain
+
 ## [1.0.3] - 2025-11-12
 
 ### Fixed
