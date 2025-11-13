@@ -512,8 +512,27 @@ Ready to capture parameters? (y/n): _
 **Handle menu choices:**
 
 - **Option 1:** Invoke plugin-planning skill for Stage 0 (will accept draft params)
+  ```
+  Skill tool:
+  - skill: "plugin-planning"
+  - prompt: "Begin Stage 0 research for [PluginName] using draft parameter-spec"
+  ```
+
 - **Option 2:** Invoke ui-mockup skill (will validate against draft when generating full spec)
-- **Option 3:** Display: "Start Stage 0 research first (/plan [PluginName]), then run UI mockup (/dream [PluginName] → option 3) in a separate session or after Stage 0 completes."
+  ```
+  Skill tool:
+  - skill: "ui-mockup"
+  - prompt: "Create UI mockup for [PluginName] using parameter-spec-draft.md"
+  ```
+
+- **Option 3:** Invoke plugin-planning skill first, then suggest ui-mockup in parallel
+  ```
+  Skill tool:
+  - skill: "plugin-planning"
+  - prompt: "Begin Stage 0 research for [PluginName]. After completion, suggest running ui-mockup in parallel."
+  ```
+  After plugin-planning completes, present option to start ui-mockup.
+
 - **Option 4:** Collect custom input
 
 </step>

@@ -9,3 +9,8 @@ What's next?
 6. Other
 
 Choose (1-6): _
+
+---
+
+**Handler Pattern**: See SKILL.md lines 152-218 for delegation rules.
+Options invoke skills directly via Skill tool (no manual command execution required).

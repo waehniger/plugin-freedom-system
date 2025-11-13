@@ -149,6 +149,74 @@ What's next?
 Choose (1-6): _
 ```
 
+<delegation_rules>
+**Handle menu choices:**
+
+<delegation_rule skill="plugin-workflow" trigger="option_1">
+- Condition: User chooses option 1 (Start implementation)
+- Action: Must invoke plugin-workflow skill via Skill tool
+- Prompt: "Begin implementation for [PluginName] starting at Stage 2"
+</delegation_rule>
+
+- **Option 1: Start implementation**
+
+  Invoke plugin-workflow skill via Skill tool:
+  ```
+  Skill tool:
+  - skill: "plugin-workflow"
+  - prompt: "Begin implementation for [PluginName] starting at Stage 2"
+  ```
+
+- **Option 2: Review contracts**
+
+  Read and display files:
+  - `plugins/[PluginName]/.ideas/architecture.md`
+  - `plugins/[PluginName]/.ideas/plan.md`
+  - `plugins/[PluginName]/.ideas/parameter-spec.md`
+  - `plugins/[PluginName]/.ideas/creative-brief.md`
+
+  After displaying, return to decision menu.
+
+- **Option 3: Improve creative brief**
+
+  Invoke plugin-ideation skill in improvement mode:
+  ```
+  Skill tool:
+  - skill: "plugin-ideation"
+  - prompt: "Improve creative brief for [PluginName] based on Stage 0 research findings"
+  ```
+
+<delegation_rule skill="deep-research" trigger="option_4">
+- Condition: User chooses option 4 (Run deeper investigation)
+- Action: Must invoke deep-research skill via Skill tool
+</delegation_rule>
+
+- **Option 4: Run deeper JUCE investigation**
+
+  Invoke deep-research skill via Skill tool:
+  ```
+  Skill tool:
+  - skill: "deep-research"
+  - prompt: "Investigate JUCE implementation patterns for [PluginName] - focus on [topic from architecture.md]"
+  ```
+
+- **Option 5: Pause here**
+
+  Confirm state saved:
+  - Verify `.continue-here.md` shows stage: 0, status: complete
+  - Verify `PLUGINS.md` shows 🚧 Stage 0
+  - Display: "Stage 0 complete. Resume anytime with /continue [PluginName]"
+  - Exit skill
+
+- **Option 6: Other**
+
+  Collect custom input and handle appropriately:
+  - If request relates to implementation: Route to plugin-workflow
+  - If request relates to design: Route to ui-mockup
+  - If request relates to research: Route to deep-research
+  - Otherwise: Handle directly or exit
+</delegation_rules>
+
 **Note:** research-planning-agent runs in fresh context (5-35 min session doesn't pollute orchestrator)
 
 **VALIDATION GATE: Before proceeding to Stage 2:**
