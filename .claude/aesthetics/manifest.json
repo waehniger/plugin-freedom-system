@@ -25,6 +25,14 @@
       "sourcePlugin": null,
       "created": "2025-11-12T00:00:00Z",
       "tags": ["industrial", "rack", "professional", "dark", "led", "hardware", "mixing", "mastering", "metal", "minimal"]
+    },
+    {
+      "id": "vintage-bakelite-001",
+      "name": "Vintage Bakelite",
+      "description": "Warm, tactile vintage hardware aesthetic with molded brown plastic character, physical rotation model, and nostalgic 1960s-70s industrial feel",
+      "sourcePlugin": "AutoClip",
+      "created": "2025-11-13T00:00:00Z",
+      "tags": ["vintage", "hardware", "bakelite", "warm", "tactile", "monochromatic", "brown", "retro", "analog", "physical", "1960s", "1970s", "minimal"]
     }
   ]
 }
