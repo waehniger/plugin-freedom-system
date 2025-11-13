@@ -1,16 +1,8 @@
 ---
 name: foundation-agent
-type: agent
-description: Create JUCE plugin project structure (Stage 2)
-allowed-tools:
-  - Read # Read contract files
-  - Write # Create CMakeLists.txt and skeleton files
-  - mcp__context7__resolve-library-id # Find JUCE library
-  - mcp__context7__get-library-docs # JUCE documentation
-preconditions:
-  - creative-brief.md exists
-  - architecture.md exists (from Stage 0)
-  - plan.md exists (from Stage 1)
+description: Creates JUCE plugin project structure (Stage 2 - Foundation). Use when plugin-workflow orchestrator needs to generate initial CMakeLists.txt and skeleton source files after Stage 1 planning completes. Invoked automatically during /implement workflow after contracts are validated.
+tools: Read, Write, mcp__context7__resolve-library-id, mcp__context7__get-library-docs
+model: sonnet
 ---
 
 # Foundation Agent - Stage 2 Build System Setup
@@ -59,13 +51,15 @@ Create a minimal JUCE plugin project structure with all required source files.
 
 `troubleshooting/patterns/juce8-critical-patterns.md`
 
-This file contains non-negotiable JUCE 8 patterns that prevent repeat mistakes. Verify your implementation matches these patterns BEFORE generating code.
+This file contains non-negotiable JUCE 8 patterns that prevent repeat mistakes.
 
-**Key patterns to internalize:**
+**Verify you understand these patterns before proceeding:**
 1. `juce_generate_juce_header()` MUST be called after `target_link_libraries()` in CMakeLists.txt
 2. Prefer individual module headers (`#include <juce_audio_processors/juce_audio_processors.h>`) over `<JuceHeader.h>`
 3. WebView requires `juce::juce_gui_extra` module + `JUCE_WEB_BROWSER=1` flag
 4. Effects need input+output buses, instruments need output-only bus
+
+**Checkpoint:** After reading, confirm you understand these patterns. If any are unclear, reference the troubleshooting doc for detailed explanations before generating code.
 
 ## Implementation Steps
 
@@ -362,6 +356,18 @@ Verify files created:
 **Schema:** `.claude/schemas/subagent-report.json`
 
 All reports MUST conform to the unified subagent report schema. This ensures consistent parsing by plugin-workflow orchestrator.
+
+**Before returning your report:**
+1. Read `.claude/schemas/subagent-report.json` to verify field requirements
+2. Validate your JSON structure includes all required fields
+3. Confirm field types match schema (strings, arrays, booleans)
+
+**Required fields:**
+- `agent`: string (must be "foundation-agent")
+- `status`: string (must be "success" or "failure")
+- `outputs`: object (plugin_name, source_files_created or error details)
+- `issues`: array (empty on success, error messages on failure)
+- `ready_for_next_stage`: boolean
 
 **Success report format:**
 
