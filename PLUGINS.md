@@ -31,7 +31,7 @@
 | FlutterVerb | 📦 Installed | 1.0.3 | 2025-11-12 |
 | LushVerb | 📦 Installed | 1.0.0 | 2025-11-12 |
 | OrganicHats | 📦 Installed | 1.0.0 | 2025-11-12 |
-| DrumRoulette | 🚧 Stage 4 | - | 2025-11-12 |
+| DrumRoulette | 🚧 Stage 5.1 | - | 2025-11-12 |
 
 ### GainKnob
 
@@ -504,7 +504,7 @@ Global:
 
 ### DrumRoulette
 
-**Status:** 🚧 **Stage 4**
+**Status:** 🚧 **Stage 5.1**
 **Created:** 2025-11-12
 **Type:** Instrument (Drum Sampler)
 **Complexity:** 5.0 / 5.0 (maximum - phased implementation)
@@ -554,6 +554,7 @@ Per-Slot (×8):
 - **2025-11-12 (Stage 4.3):** Tilt filter + volume control - cascaded shelving filters at 1kHz, per-voice gain (-60dB to +6dB)
 - **2025-11-12 (Stage 4.4):** Folder randomization + solo/mute - recursive scanning, random selection, priority routing
 - **2025-11-12 (Stage 4 COMPLETE):** All DSP components functional - ready for GUI integration
+- **2025-11-12 (Stage 5 Phase 5.1):** WebView layout setup - 8 channel strips, JUCE patterns applied, zero errors
 
 **Known Issues:**
 - None
