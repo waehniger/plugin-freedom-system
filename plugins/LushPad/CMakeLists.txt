@@ -7,6 +7,8 @@ juce_add_plugin(LushPad
     PLUGIN_CODE Lush
     FORMATS VST3 AU Standalone
     PRODUCT_NAME "LushPad"
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
     NEEDS_WEB_BROWSER TRUE
 )
 
