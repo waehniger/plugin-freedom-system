@@ -77,7 +77,7 @@ All state files synchronized. Workflow can resume without context loss.
 ## Example 2: After Subagent Completion
 
 ### Scenario
-foundation-agent completed Stage 1 but didn't create .continue-here.md handoff file. Reconciliation detects missing handoff and offers to create it.
+foundation-shell-agent completed Stage 1 but didn't create .continue-here.md handoff file. Reconciliation detects missing handoff and offers to create it.
 
 ### Report Output
 

@@ -319,7 +319,7 @@ What would you like to do?
 ## Internal Stage Tracking
 
 **CRITICAL:** Internal code STILL uses stage numbers for:
-- Routing logic (Stage 1 → foundation-agent, Stage 2 → dsp-agent, etc.)
+- Routing logic (Stage 1 → foundation-shell-agent, Stage 2 → dsp-agent, etc.)
 - .continue-here.md state tracking (stage: 3)
 - Precondition checks (checkStagePreconditions(3))
 - Git commit metadata (feat: [Plugin] Stage 2 - audio engine working)

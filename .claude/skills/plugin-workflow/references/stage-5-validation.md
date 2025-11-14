@@ -25,7 +25,7 @@ Stage 3 modifies source code (WebView UI integration, parameter bindings). Witho
 1. Rebuild with Stage 3 changes:
 
 ```bash
-# Rebuild from root directory (matches foundation-agent build location)
+# Rebuild from root directory (matches foundation-shell-agent build location)
 echo "Rebuilding ${PLUGIN_NAME} with Stage 3 GUI changes..."
 
 cmake --build build --config Release \

@@ -102,7 +102,7 @@ Missing parameters: delayTime, feedback
 
 What should I do?
 
-1. Retry Stage 2 - shell-agent will regenerate APVTS
+1. Retry Stage 1 - foundation-shell-agent will regenerate APVTS
 2. Check parameter-spec.md - Verify parameter definitions
 3. Manual fix - Edit PluginProcessor.cpp manually then continue
 4. Pause workflow - Save progress and investigate

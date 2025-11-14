@@ -2,7 +2,7 @@
 
 ## Scenario 1: From Stage 1 (Foundation)
 
-**Context:** plugin-workflow invoked build-automation after foundation-agent completed
+**Context:** plugin-workflow invoked build-automation after foundation-shell-agent completed
 
 **Invocation:**
 ```
@@ -25,11 +25,11 @@ Foundation verified. What's next?
 
 5. User chooses 1
 6. Exit skill, return to plugin-workflow
-7. plugin-workflow invokes shell-agent
+7. plugin-workflow invokes foundation-shell-agent
 
 ## Scenario 2: From Stages 3-6
 
-**Context:** plugin-workflow invoked build-automation after shell-agent/dsp-agent/gui-agent completed
+**Context:** plugin-workflow invoked build-automation after foundation-shell-agent/dsp-agent/gui-agent completed
 
 **Invocation:**
 ```

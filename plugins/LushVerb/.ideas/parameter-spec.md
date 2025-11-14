@@ -106,12 +106,11 @@
 
 ## Implementation Contract
 
-This specification is the **single source of truth** for Stages 2-6:
+This specification is the **single source of truth** for Stages 1-4:
 
-- **Stage 2 (Foundation):** Build system references this for project structure
-- **Stage 3 (Shell):** APVTS creation must match these exact specs
-- **Stage 4 (DSP):** Audio processing references these ranges and defaults
-- **Stage 5 (GUI):** WebView UI binds to these parameter IDs
-- **Stage 6 (Validation):** Factory presets use these ranges
+- **Stage 1 (Foundation):** Build system and APVTS creation must match these exact specs
+- **Stage 2 (DSP):** Audio processing references these ranges and defaults
+- **Stage 3 (GUI):** WebView UI binds to these parameter IDs
+- **Stage 4 (Validation):** Factory presets use these ranges
 
 **No deviations allowed during implementation.** Any changes require returning to Stage 0 and updating this specification.

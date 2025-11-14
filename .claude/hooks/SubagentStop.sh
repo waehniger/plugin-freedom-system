@@ -12,7 +12,7 @@ if [ -z "$SUBAGENT" ]; then
 fi
 
 # Check relevance FIRST - only validate our implementation subagents
-if [[ ! "$SUBAGENT" =~ ^(foundation-agent|shell-agent|dsp-agent|gui-agent)$ ]]; then
+if [[ ! "$SUBAGENT" =~ ^(foundation-shell-agent|dsp-agent|gui-agent)$ ]]; then
   echo "Hook not relevant for subagent: $SUBAGENT, skipping gracefully"
   exit 0
 fi
@@ -55,30 +55,30 @@ fi
 
 # Execute hook logic based on subagent
 case "$SUBAGENT" in
-  foundation-agent)
-    echo "Validating foundation-agent output (Stage 1)..."
+  foundation-shell-agent)
+    echo "Validating foundation-shell-agent output (Stage 1)..."
+
+    # Validate foundation (CMakeLists.txt, source files, build)
     python3 .claude/hooks/validators/validate-foundation.py
-    RESULT=$?
-    if [ $RESULT -ne 0 ]; then
+    FOUNDATION_RESULT=$?
+    if [ $FOUNDATION_RESULT -ne 0 ]; then
       echo "Foundation validation FAILED: CMakeLists.txt missing or build failed" >&2
       exit 2  # Block workflow
     fi
-    echo "Foundation validation PASSED"
-    ;;
 
-  shell-agent)
-    echo "Validating shell-agent output (Stage 1)..."
+    # Validate parameters (APVTS matches parameter-spec.md)
     python3 .claude/hooks/validators/validate-parameters.py
-    RESULT=$?
-    if [ $RESULT -ne 0 ]; then
+    PARAMS_RESULT=$?
+    if [ $PARAMS_RESULT -ne 0 ]; then
       echo "Parameter validation FAILED: Parameters from spec missing in code" >&2
       exit 2  # Block workflow
     fi
-    echo "Parameter validation PASSED"
+
+    echo "Foundation-shell validation PASSED"
     ;;
 
   dsp-agent)
-    echo "Validating dsp-agent output (Stage 1)..."
+    echo "Validating dsp-agent output (Stage 2)..."
     python3 .claude/hooks/validators/validate-dsp-components.py
     RESULT=$?
     if [ $RESULT -ne 0 ]; then
@@ -89,7 +89,7 @@ case "$SUBAGENT" in
     ;;
 
   gui-agent)
-    echo "Validating gui-agent output (Stage 2)..."
+    echo "Validating gui-agent output (Stage 3)..."
     python3 .claude/hooks/validators/validate-gui-bindings.py
     RESULT=$?
     if [ $RESULT -ne 0 ]; then

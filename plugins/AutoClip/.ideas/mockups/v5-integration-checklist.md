@@ -5,7 +5,7 @@
 **Window Size:** 300×500px (portrait, fixed)
 **Parameters:** 2 (clipThreshold, soloClipped)
 
-This checklist guides integration of the finalized UI mockup during Stage 5 (GUI implementation). The gui-agent subagent will execute these steps.
+This checklist guides integration of the finalized UI mockup during Stage 3 (GUI implementation). The gui-agent subagent will execute these steps.
 
 ---
 
@@ -444,7 +444,7 @@ cmake --build . --config Release --target AutoClip_AU
 
 ## Success Criteria
 
-Stage 5 (GUI) is complete when ALL of these are verified:
+Stage 3 (GUI) is complete when ALL of these are verified:
 
 - ✅ Build succeeds (Debug and Release)
 - ✅ UI loads in Standalone and DAW
@@ -505,8 +505,8 @@ After completing this checklist:
 
 1. **Test in DAW** - Load in Logic Pro / Ableton / Reaper
 2. **Run pluginval** - Validate with `pluginval --strictness-level 10`
-3. **Update PLUGINS.md** - Mark Stage 5 complete
-4. **Commit changes** - `git commit -m "feat(AutoClip): Stage 5 complete - WebView UI integrated"`
+3. **Update PLUGINS.md** - Mark Stage 3 complete
+4. **Commit changes** - `git commit -m "feat(AutoClip): Stage 3 complete - WebView UI integrated"`
 
 ---
 

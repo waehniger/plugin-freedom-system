@@ -19,8 +19,8 @@ async function dispatchStage(pluginName, stageNumber) {
   // ALWAYS invoke subagents via Task tool for stages 1-4
   switch(stageNumber) {
     case 1:
-      // Invoke foundation-agent subagent
-      return await invokeSubagent('foundation-agent', {
+      // Invoke foundation-shell-agent subagent
+      return await invokeSubagent('foundation-shell-agent', {
         pluginName,
         contracts: loadContracts(pluginName),
         requiredReading: 'juce8-critical-patterns.md'

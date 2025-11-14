@@ -5,7 +5,7 @@
 **Window Size:** 500×300px
 **Generated:** 2025-11-11
 
-## Stage 5 (GUI) Integration Steps
+## Stage 3 (GUI) Integration Steps
 
 ### 1. Copy UI Files
 
@@ -329,7 +329,7 @@ Integration is complete when:
 
 ## Next Steps After Integration
 
-1. **Stage 6 (Validation):**
+1. **Stage 4 (Validation):**
    - Run pluginval on VST3 and AU builds
    - Create factory presets
    - Generate CHANGELOG.md

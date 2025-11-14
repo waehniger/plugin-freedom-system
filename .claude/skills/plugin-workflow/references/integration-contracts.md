@@ -4,8 +4,7 @@ Complete contract definitions for plugin-workflow skill interactions with subage
 
 ## Contents
 
-- [foundation-agent Contract](#foundation-agent-contract)
-- [shell-agent Contract](#shell-agent-contract)
+- [foundation-shell-agent Contract](#foundation-shell-agent-contract)
 - [dsp-agent Contract](#dsp-agent-contract)
 - [gui-agent Contract](#gui-agent-contract)
 - [validator Contract](#validator-contract)
@@ -24,7 +23,7 @@ All subagents follow a consistent contract pattern:
 
 ---
 
-## foundation-agent Contract
+## foundation-shell-agent Contract
 
 **When:** Stage 1 (Foundation) implementation
 
@@ -47,7 +46,7 @@ Return JSON report when complete.
 **Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`:
 ```json
 {
-  "agent": "foundation-agent",
+  "agent": "foundation-shell-agent",
   "status": "success",
   "outputs": {
     "plugin_name": "PluginName",
@@ -65,41 +64,11 @@ Return JSON report when complete.
 ```
 
 **Error handling:**
-- Missing contract → foundation-agent returns status: "failure", orchestrator blocks progression
+- Missing contract → foundation-shell-agent returns status: "failure", orchestrator blocks progression
 - File creation error → present retry menu to user
 - Schema validation failure → log error, block progression
 
-**Contract:** foundation-agent creates files, returns report. Orchestrator validates schema, commits changes, updates state.
-
----
-
-## shell-agent Contract
-
-**When:** Stage 2 (Shell) implementation
-
-**Sends via Task tool:**
-```
-Implement Stage 2 (Shell) for [PluginName].
-
-**Contracts:**
-- parameter-spec.md: [full content]
-- architecture.md: [full content]
-
-**Required Reading:**
-[juce8-critical-patterns.md content]
-
-**Directive:** Implement APVTS with all parameters, state management.
-Return JSON report when complete.
-```
-
-**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`
-
-**Error handling:**
-- Parameter count mismatch → present investigation menu
-- APVTS creation failed → offer retry or manual intervention
-- Schema validation failure → block progression
-
-**Contract:** shell-agent modifies files, returns report. Orchestrator validates parameter counts match parameter-spec.md.
+**Contract:** foundation-shell-agent creates files, returns report. Orchestrator validates schema, commits changes, updates state.
 
 ---
 
