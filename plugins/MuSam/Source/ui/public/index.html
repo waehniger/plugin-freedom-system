@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MuSam</title>
+
+  <style>
+    /* CRITICAL: WebView constraints - NO viewport units */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      /* Native application feel */
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      cursor: default;
+      overflow: hidden;
+
+      /* Layout */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Main container (900x600 fixed size) */
+    .container {
+      width: 900px;
+      height: 600px;
+      position: relative;
+      background: #1a1a1a;
+    }
+
+    /* Apple Liquid Glass Panel */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* Header */
+    .header {
+      position: absolute;
+      top: 10px;
+      left: 20px;
+      right: 140px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+    }
+
+    .plugin-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+
+    /* Right Sidebar */
+    .sidebar {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 100px;
+      height: 560px;
+    }
+
+    .sidebar-section {
+      margin-bottom: 30px;
+    }
+
+    .sidebar-label {
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Waveform Display */
+    .waveform-container {
+      position: absolute;
+      top: 50px;
+      left: 90px;
+      width: 660px;
+      height: 200px;
+    }
+
+    .waveform-display {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .waveform-canvas {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .region-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      cursor: ew-resize;
+      z-index: 10;
+      transition: width 0.15s, box-shadow 0.15s;
+    }
+
+    .region-marker:hover {
+      width: 6px;
+      box-shadow: 0 0 12px currentColor;
+    }
+
+    .region-marker.active {
+      width: 5px;
+      box-shadow: 0 0 20px currentColor;
+    }
+
+    .region-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      opacity: 0.15;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    .region-fill.active {
+      opacity: 0.3;
+    }
+
+    /* Region Control Strip */
+    .region-controls {
+      position: absolute;
+      top: 270px;
+      left: 40px;
+      width: 720px;
+      height: 120px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-label {
+      font-size: 11px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Sliders */
+    .slider-vertical {
+      width: 40px;
+      height: 80px;
+      position: relative;
+    }
+
+    .slider-track {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    .slider-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: linear-gradient(180deg, rgba(100, 200, 255, 0.8), rgba(100, 200, 255, 0.4));
+      border-radius: 2px;
+      transition: height 0.05s;
+    }
+
+    .slider-thumb {
+      position: absolute;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .slider-thumb:hover {
+      transform: translate(-50%, -50%) scale(1.1);
+    }
+
+    .slider-thumb:active {
+      transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    .slider-value {
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: #64C8FF;
+      white-space: nowrap;
+    }
+
+    /* Knobs */
+    .knob {
+      width: 60px;
+      height: 60px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .knob-body {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.5),
+        inset 0 2px 4px rgba(255, 255, 255, 0.1),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+      transform-origin: center center;
+      transition: transform 0.05s;
+      position: relative;
+    }
+
+    .knob-indicator {
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3px;
+      height: 16px;
+      background: #64C8FF;
+      border-radius: 2px;
+      box-shadow: 0 0 8px rgba(100, 200, 255, 0.6);
+    }
+
+    .knob:hover .knob-body {
+      border-color: rgba(100, 200, 255, 0.3);
+    }
+
+    .knob-value {
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: #64C8FF;
+      white-space: nowrap;
+    }
+
+    /* Sequencer */
+    .sequencer {
+      position: absolute;
+      top: 420px;
+      left: 90px;
+      width: 660px;
+      height: 80px;
+    }
+
+    .sequencer-steps {
+      display: flex;
+      gap: 12px;
+      height: 60px;
+    }
+
+    .sequencer-step {
+      flex: 1;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sequencer-step::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .sequencer-step:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .sequencer-step.active {
+      border-color: rgba(100, 200, 255, 0.8) !important;
+      box-shadow: 0 0 20px rgba(100, 200, 255, 0.6);
+      transform: translateY(-2px) scale(1.05);
+    }
+    
+    .sequencer-step.active::before {
+      opacity: 1;
+      background: rgba(100, 200, 255, 0.3);
+    }
+
+    .step-number {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.3);
+      font-weight: 600;
+    }
+
+    /* Sequencer Controls */
+    .sequencer-controls {
+      position: absolute;
+      top: 530px;
+      left: 90px;
+      width: 660px;
+      height: 50px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      padding: 0 15px;
+    }
+
+    /* Toggle Button */
+    .toggle {
+      width: 50px;
+      height: 24px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle.active {
+      background: rgba(100, 200, 255, 0.4);
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+    }
+
+    .toggle.active .toggle-thumb {
+      transform: translateX(26px);
+    }
+
+    /* Combo Box */
+    .combo-box {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .combo-box:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(100, 200, 255, 0.3);
+    }
+
+    /* Region Colors */
+    .region-1 { background-color: #00D9FF; color: #00D9FF; }
+    .region-2 { background-color: #FF00D9; color: #FF00D9; }
+    .region-3 { background-color: #FFD900; color: #FFD900; }
+    .region-4 { background-color: #00FF7F; color: #00FF7F; }
+    .region-5 { background-color: #FF8C00; color: #FF8C00; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="plugin-title">MuSam</div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div class="sidebar glass-panel">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Speed</div>
+        <div class="slider-vertical" id="speed-slider" data-param="speed">
+          <div class="slider-track">
+            <div class="slider-fill"></div>
+          </div>
+          <div class="slider-thumb"></div>
+          <div class="slider-value">1.00x</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Volume</div>
+        <div class="slider-vertical" id="volume-slider" data-param="volume">
+          <div class="slider-track">
+            <div class="slider-fill"></div>
+          </div>
+          <div class="slider-thumb"></div>
+          <div class="slider-value">-6.0 dB</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Waveform Display -->
+    <div class="waveform-container glass-panel">
+      <div class="waveform-display">
+        <canvas class="waveform-canvas" id="waveform" width="660" height="200"></canvas>
+
+        <!-- Region fills -->
+        <div class="region-fill region-1 active" id="fill-1"></div>
+        <div class="region-fill region-2" id="fill-2"></div>
+        <div class="region-fill region-3" id="fill-3"></div>
+        <div class="region-fill region-4" id="fill-4"></div>
+        <div class="region-fill region-5" id="fill-5"></div>
+
+        <!-- Region markers (start and end for each region) -->
+        <div class="region-marker region-1 active" id="marker-1-start" data-region="1" data-type="start"></div>
+        <div class="region-marker region-1" id="marker-1-end" data-region="1" data-type="end"></div>
+        <div class="region-marker region-2" id="marker-2-start" data-region="2" data-type="start"></div>
+        <div class="region-marker region-2" id="marker-2-end" data-region="2" data-type="end"></div>
+        <div class="region-marker region-3" id="marker-3-start" data-region="3" data-type="start"></div>
+        <div class="region-marker region-3" id="marker-3-end" data-region="3" data-type="end"></div>
+        <div class="region-marker region-4" id="marker-4-start" data-region="4" data-type="start"></div>
+        <div class="region-marker region-4" id="marker-4-end" data-region="4" data-type="end"></div>
+        <div class="region-marker region-5" id="marker-5-start" data-region="5" data-type="start"></div>
+        <div class="region-marker region-5" id="marker-5-end" data-region="5" data-type="end"></div>
+      </div>
+    </div>
+
+    <!-- Region Control Strip -->
+    <div class="region-controls glass-panel" id="region-controls">
+      <!-- Controls dynamically populated per selected region -->
+    </div>
+
+    <!-- Sequencer -->
+    <div class="sequencer glass-panel">
+      <div class="sequencer-steps">
+        <div class="sequencer-step" data-step="1"><span class="step-number">1</span></div>
+        <div class="sequencer-step" data-step="2"><span class="step-number">2</span></div>
+        <div class="sequencer-step" data-step="3"><span class="step-number">3</span></div>
+        <div class="sequencer-step" data-step="4"><span class="step-number">4</span></div>
+        <div class="sequencer-step" data-step="5"><span class="step-number">5</span></div>
+        <div class="sequencer-step" data-step="6"><span class="step-number">6</span></div>
+        <div class="sequencer-step" data-step="7"><span class="step-number">7</span></div>
+        <div class="sequencer-step" data-step="8"><span class="step-number">8</span></div>
+      </div>
+    </div>
+
+    <!-- Sequencer Controls -->
+    <div class="sequencer-controls glass-panel">
+      <div class="control-group">
+        <div class="control-label">Mode</div>
+        <select class="combo-box" id="playback-mode">
+          <option>Sequential</option>
+          <option>Random</option>
+          <option>Custom</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">Loop</div>
+        <div class="toggle active" id="loop-toggle">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">Crossfade</div>
+        <div class="slider-vertical" id="crossfade-slider" data-param="crossfade_time" style="width: 100px; height: 30px;">
+          <div class="slider-track">
+            <div class="slider-fill"></div>
+          </div>
+          <div class="slider-thumb"></div>
+          <div class="slider-value">50 ms</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // JUCE Frontend Library Import
+    import { getSliderState, getComboBoxState, getToggleButtonState } from "./js/juce/index.js";
+
+    // Disable context menu
+    document.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      return false;
+    });
+
+    // Verify JUCE backend
+    if (!window.__JUCE__) {
+      console.error("JUCE backend not available");
+      throw new Error("JUCE backend not connected");
+    }
+
+    console.log("MuSam UI initialized - 53 parameters");
+
+    // Waveform display and region markers
+    const canvas = document.getElementById('waveform');
+    const ctx = canvas.getContext('2d');
+    const waveformContainer = document.querySelector('.waveform-display');
+    
+    // Region colors
+    const regionColors = {
+      1: '#00D9FF', // Cyan
+      2: '#FF00D9', // Magenta
+      3: '#FFD900', // Yellow
+      4: '#00FF7F', // Green
+      5: '#FF8C00'  // Orange
+    };
+
+    // Draw waveform with region fills
+    function drawWaveform() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw waveform (placeholder - will be replaced with actual sample data)
+      ctx.strokeStyle = '#64C8FF';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      const centerY = canvas.height / 2;
+      const amplitude = 60;
+
+      for (let x = 0; x < canvas.width; x++) {
+        const t = x / canvas.width;
+        const y = centerY + Math.sin(t * Math.PI * 16) * amplitude * Math.exp(-t * 2);
+
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+
+      ctx.stroke();
+
+      // Draw region fills
+      for (let i = 1; i <= 5; i++) {
+        const startState = getSliderState(`region_${i}_start`);
+        const endState = getSliderState(`region_${i}_end`);
+        
+        if (startState && endState) {
+          const startPercent = startState.getNormalisedValue();
+          const endPercent = endState.getNormalisedValue();
+          const startX = startPercent * canvas.width;
+          const endX = endPercent * canvas.width;
+          
+          ctx.fillStyle = regionColors[i] + '40'; // 40 = 25% opacity
+          ctx.fillRect(startX, 0, endX - startX, canvas.height);
+        }
+      }
+
+      // Draw waveform fill
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.lineTo(canvas.width, centerY);
+      ctx.lineTo(0, centerY);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Update region marker positions
+      updateRegionMarkers();
+    }
+
+    // Update region marker positions based on start/end parameters
+    function updateRegionMarkers() {
+      for (let i = 1; i <= 5; i++) {
+        const startState = getSliderState(`region_${i}_start`);
+        const endState = getSliderState(`region_${i}_end`);
+        
+        if (startState && endState) {
+          const startPercent = startState.getNormalisedValue();
+          const endPercent = endState.getNormalisedValue();
+          
+          const startMarker = document.getElementById(`marker-${i}-start`);
+          const endMarker = document.getElementById(`marker-${i}-end`);
+          const fill = document.getElementById(`fill-${i}`);
+          
+          if (startMarker) {
+            startMarker.style.left = `${startPercent * 100}%`;
+          }
+          
+          if (endMarker) {
+            endMarker.style.left = `${endPercent * 100}%`;
+          }
+          
+          if (fill) {
+            fill.style.left = `${startPercent * 100}%`;
+            fill.style.width = `${(endPercent - startPercent) * 100}%`;
+          }
+        }
+      }
+    }
+
+    // Initialize waveform
+    drawWaveform();
+    
+    // Listen for region parameter changes to update markers
+    for (let i = 1; i <= 5; i++) {
+      const startState = getSliderState(`region_${i}_start`);
+      const endState = getSliderState(`region_${i}_end`);
+      
+      if (startState) {
+        startState.valueChangedEvent.addListener(() => {
+          drawWaveform();
+        });
+      }
+      
+      if (endState) {
+        endState.valueChangedEvent.addListener(() => {
+          drawWaveform();
+        });
+      }
+    }
+
+    // Region selection state
+    let selectedRegion = 1;
+
+    // Region marker click and drag handlers
+    for (let i = 1; i <= 5; i++) {
+      const startMarker = document.getElementById(`marker-${i}-start`);
+      const endMarker = document.getElementById(`marker-${i}-end`);
+      const fill = document.getElementById(`fill-${i}`);
+
+      // Click handler for region selection (click on fill area)
+      if (fill) {
+        fill.addEventListener('click', (e) => {
+          // Update active states
+          for (let j = 1; j <= 5; j++) {
+            const startM = document.getElementById(`marker-${j}-start`);
+            const endM = document.getElementById(`marker-${j}-end`);
+            const f = document.getElementById(`fill-${j}`);
+            if (startM) startM.classList.remove('active');
+            if (endM) endM.classList.remove('active');
+            if (f) f.classList.remove('active');
+          }
+
+          if (startMarker) startMarker.classList.add('active');
+          if (endMarker) endMarker.classList.add('active');
+          if (fill) fill.classList.add('active');
+          selectedRegion = i;
+
+          updateRegionControls(i);
+        });
+      }
+
+      // Drag handler for start marker
+      if (startMarker) {
+        let isDraggingStart = false;
+        let dragStartX = 0;
+        let dragStartValue = 0;
+
+        startMarker.addEventListener('mousedown', (e) => {
+          isDraggingStart = true;
+          startMarker.dataset.isDragging = 'true';
+          dragStartX = e.clientX;
+          
+          const startState = getSliderState(`region_${i}_start`);
+          if (startState) {
+            dragStartValue = startState.getNormalisedValue();
+          }
+          
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!isDraggingStart) return;
+          
+          const startState = getSliderState(`region_${i}_start`);
+          const endState = getSliderState(`region_${i}_end`);
+          
+          if (!startState || !endState) return;
+          
+          const deltaX = e.clientX - dragStartX;
+          const deltaPercent = deltaX / waveformContainer.offsetWidth;
+          const newValue = Math.max(0, Math.min(1, dragStartValue + deltaPercent));
+          
+          // Ensure start < end
+          const endPercent = endState.getNormalisedValue();
+          const clampedValue = Math.min(newValue, endPercent - 0.01);
+          startState.setNormalisedValue(clampedValue);
+          
+          drawWaveform();
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (isDraggingStart) {
+            isDraggingStart = false;
+            delete startMarker.dataset.isDragging;
+          }
+        });
+      }
+
+      // Drag handler for end marker
+      if (endMarker) {
+        let isDraggingEnd = false;
+        let dragStartX = 0;
+        let dragStartValue = 0;
+
+        endMarker.addEventListener('mousedown', (e) => {
+          isDraggingEnd = true;
+          endMarker.dataset.isDragging = 'true';
+          dragStartX = e.clientX;
+          
+          const endState = getSliderState(`region_${i}_end`);
+          if (endState) {
+            dragStartValue = endState.getNormalisedValue();
+          }
+          
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!isDraggingEnd) return;
+          
+          const startState = getSliderState(`region_${i}_start`);
+          const endState = getSliderState(`region_${i}_end`);
+          
+          if (!startState || !endState) return;
+          
+          const deltaX = e.clientX - dragStartX;
+          const deltaPercent = deltaX / waveformContainer.offsetWidth;
+          const newValue = Math.max(0, Math.min(1, dragStartValue + deltaPercent));
+          
+          // Ensure end > start
+          const startPercent = startState.getNormalisedValue();
+          const clampedValue = Math.max(newValue, startPercent + 0.01);
+          endState.setNormalisedValue(clampedValue);
+          
+          drawWaveform();
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (isDraggingEnd) {
+            isDraggingEnd = false;
+            delete endMarker.dataset.isDragging;
+          }
+        });
+      }
+    }
+
+    // Update region control strip based on selected region
+    function updateRegionControls(region) {
+      const container = document.getElementById('region-controls');
+      container.innerHTML = `
+        <div class="control-group">
+          <div class="control-label">Pitch</div>
+          <div class="slider-vertical" data-param="region_${region}_pitch">
+            <div class="slider-track"><div class="slider-fill"></div></div>
+            <div class="slider-thumb"></div>
+            <div class="slider-value">0 st</div>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">Cutoff</div>
+          <div class="knob" data-param="region_${region}_filter_cutoff">
+            <div class="knob-body"><div class="knob-indicator"></div></div>
+            <div class="knob-value">20 kHz</div>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">Resonance</div>
+          <div class="knob" data-param="region_${region}_filter_resonance">
+            <div class="knob-body"><div class="knob-indicator"></div></div>
+            <div class="knob-value">0%</div>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">Attack</div>
+          <div class="slider-vertical" data-param="region_${region}_attack">
+            <div class="slider-track"><div class="slider-fill"></div></div>
+            <div class="slider-thumb"></div>
+            <div class="slider-value">10 ms</div>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">Decay</div>
+          <div class="slider-vertical" data-param="region_${region}_decay">
+            <div class="slider-track"><div class="slider-fill"></div></div>
+            <div class="slider-thumb"></div>
+            <div class="slider-value">500 ms</div>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">Pan</div>
+          <div class="knob" data-param="region_${region}_pan">
+            <div class="knob-body"><div class="knob-indicator"></div></div>
+            <div class="knob-value">C</div>
+          </div>
+        </div>
+      `;
+
+      // Re-bind JUCE parameters for new controls
+      bindRegionParameters(region);
+    }
+
+    // Bind JUCE parameters for region controls
+    function bindRegionParameters(region) {
+      const regionParams = [
+        `region_${region}_pitch`,
+        `region_${region}_filter_cutoff`,
+        `region_${region}_filter_resonance`,
+        `region_${region}_attack`,
+        `region_${region}_decay`,
+        `region_${region}_pan`
+      ];
+
+      regionParams.forEach(paramId => {
+        const control = document.querySelector(`[data-param="${paramId}"]`);
+        if (!control) return;
+
+        const sliderState = getSliderState(paramId);
+        if (!sliderState) {
+          console.error(`Failed to get slider state for ${paramId}`);
+          return;
+        }
+
+        // Bind slider/knob interactions
+        if (control.classList.contains('slider-vertical')) {
+          bindSlider(control, sliderState, paramId);
+        } else if (control.classList.contains('knob')) {
+          bindKnob(control, sliderState, paramId);
+        }
+      });
+    }
+
+    // Bind slider control
+    function bindSlider(element, sliderState, paramId) {
+      const thumb = element.querySelector('.slider-thumb');
+      const fill = element.querySelector('.slider-fill');
+      const valueDisplay = element.querySelector('.slider-value');
+      
+      if (!thumb || !fill || !valueDisplay) return;
+
+      let isDragging = false;
+      let startY = 0;
+      let startValue = 0;
+
+      const updateSlider = (normalizedValue) => {
+        const height = element.offsetHeight;
+        const thumbY = height * (1 - normalizedValue);
+        thumb.style.bottom = `${thumbY}px`;
+        fill.style.height = `${height - thumbY}px`;
+      };
+
+      const updateValue = (normalizedValue) => {
+        // Get parameter range from HTML data attributes or defaults
+        const ranges = {
+          speed: [0.5, 2.0, 'x'],
+          volume: [-60.0, 0.0, 'dB'],
+          crossfade_time: [0.0, 500.0, 'ms']
+        };
+
+        let range = ranges[paramId];
+        if (!range) {
+          // Region parameters - use defaults
+          if (paramId.includes('pitch')) range = [-24.0, 24.0, 'st'];
+          else if (paramId.includes('attack')) range = [0.0, 1000.0, 'ms'];
+          else if (paramId.includes('decay')) range = [0.0, 5000.0, 'ms'];
+          else range = [0.0, 100.0, '%'];
+        }
+
+        const actualValue = range[0] + normalizedValue * (range[1] - range[0]);
+        const decimals = paramId.includes('speed') ? 2 : paramId.includes('volume') ? 1 : 0;
+        valueDisplay.textContent = `${actualValue.toFixed(decimals)} ${range[2]}`;
+      };
+
+      // Mouse events
+      thumb.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startValue = sliderState.getNormalisedValue();
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const delta = (startY - e.clientY) / element.offsetHeight;
+        const newValue = Math.max(0, Math.min(1, startValue + delta));
+        sliderState.setNormalisedValue(newValue);
+        updateSlider(newValue);
+        updateValue(newValue);
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // Listen for external changes
+      sliderState.valueChangedEvent.addListener((normalizedValue) => {
+        updateSlider(normalizedValue);
+        updateValue(normalizedValue);
+      });
+
+      // Initialize
+      const initialValue = sliderState.getNormalisedValue();
+      updateSlider(initialValue);
+      updateValue(initialValue);
+    }
+
+    // Bind knob control
+    function bindKnob(element, sliderState, paramId) {
+      const knobBody = element.querySelector('.knob-body');
+      const indicator = element.querySelector('.knob-indicator');
+      const valueDisplay = element.querySelector('.knob-value');
+      
+      if (!knobBody || !indicator || !valueDisplay) return;
+
+      let isDragging = false;
+      let startY = 0;
+      let startValue = 0;
+
+      const updateKnob = (normalizedValue) => {
+        const degrees = -135 + (normalizedValue * 270); // -135° to +135°
+        knobBody.style.transform = `rotate(${degrees}deg)`;
+        
+        // Update value display
+        const ranges = {
+          'filter_cutoff': [20.0, 20000.0, 'Hz'],
+          'filter_resonance': [0.0, 100.0, '%'],
+          'pan': [-100.0, 100.0, '%']
+        };
+
+        let range = ranges[paramId.split('_').pop()] || [0.0, 100.0, '%'];
+        const actualValue = range[0] + normalizedValue * (range[1] - range[0]);
+        
+        if (paramId.includes('pan')) {
+          valueDisplay.textContent = Math.abs(actualValue) < 0.5 ? 'C' : 
+            `${Math.round(Math.abs(actualValue))}${actualValue < 0 ? 'L' : 'R'}`;
+        } else if (paramId.includes('filter_cutoff')) {
+          valueDisplay.textContent = actualValue >= 1000 ? 
+            `${(actualValue / 1000).toFixed(1)} kHz` : `${Math.round(actualValue)} Hz`;
+        } else {
+          valueDisplay.textContent = `${Math.round(actualValue)}${range[2]}`;
+        }
+      };
+
+      // Mouse events
+      element.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startValue = sliderState.getNormalisedValue();
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const delta = (startY - e.clientY) / 200; // Sensitivity
+        const newValue = Math.max(0, Math.min(1, startValue + delta));
+        sliderState.setNormalisedValue(newValue);
+        updateKnob(newValue);
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // Listen for external changes
+      sliderState.valueChangedEvent.addListener((normalizedValue) => {
+        updateKnob(normalizedValue);
+      });
+
+      // Initialize
+      const initialValue = sliderState.getNormalisedValue();
+      updateKnob(initialValue);
+    }
+
+    // Bind global parameters
+    function bindGlobalParameters() {
+      // Speed slider
+      const speedSlider = document.getElementById('speed-slider');
+      if (speedSlider) {
+        const speedState = getSliderState('speed');
+        if (speedState) bindSlider(speedSlider, speedState, 'speed');
+      }
+
+      // Volume slider
+      const volumeSlider = document.getElementById('volume-slider');
+      if (volumeSlider) {
+        const volumeState = getSliderState('volume');
+        if (volumeState) bindSlider(volumeSlider, volumeState, 'volume');
+      }
+    }
+
+    // Sequencer visualization state
+    let currentSequencerStep = -1;
+    
+    // Update sequencer step visualization
+    function updateSequencerStep(stepIndex) {
+      // Remove active class from all steps
+      for (let i = 1; i <= 8; i++) {
+        const stepElement = document.querySelector(`[data-step="${i}"]`);
+        if (stepElement) {
+          stepElement.classList.remove('active');
+        }
+      }
+      
+      // Add active class to current step
+      if (stepIndex >= 1 && stepIndex <= 8) {
+        const stepElement = document.querySelector(`[data-step="${stepIndex}"]`);
+        if (stepElement) {
+          stepElement.classList.add('active');
+          currentSequencerStep = stepIndex;
+        }
+      }
+    }
+
+    // Bind sequencer parameters
+    function bindSequencerParameters() {
+      // Step region combos
+      for (let i = 1; i <= 8; i++) {
+        const stepElement = document.querySelector(`[data-step="${i}"]`);
+        if (stepElement) {
+          const comboState = getComboBoxState(`step_${i}_region`);
+          if (comboState) {
+            comboState.valueChangedEvent.addListener((index) => {
+              const colors = ['', '#00D9FF', '#FF00D9', '#FFD900', '#00FF7F', '#FF8C00'];
+              const bgColor = colors[index] || 'rgba(255, 255, 255, 0.05)';
+              stepElement.style.backgroundColor = bgColor;
+              
+              // Add region color as border if region selected
+              if (index > 0) {
+                stepElement.style.borderColor = colors[index];
+                stepElement.style.borderWidth = '2px';
+              } else {
+                stepElement.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                stepElement.style.borderWidth = '2px';
+              }
+            });
+            
+            // Initialize
+            const initialIndex = comboState.getSelectedItemIndex();
+            const colors = ['', '#00D9FF', '#FF00D9', '#FFD900', '#00FF7F', '#FF8C00'];
+            const bgColor = colors[initialIndex] || 'rgba(255, 255, 255, 0.05)';
+            stepElement.style.backgroundColor = bgColor;
+            
+            if (initialIndex > 0) {
+              stepElement.style.borderColor = colors[initialIndex];
+              stepElement.style.borderWidth = '2px';
+            }
+            
+            // Click handler for step selection
+            stepElement.addEventListener('click', () => {
+              // Cycle through region options
+              const currentIndex = comboState.getSelectedItemIndex();
+              const nextIndex = (currentIndex + 1) % 6; // 0-5 (None, Region 1-5)
+              comboState.setSelectedItemIndex(nextIndex);
+            });
+          }
+        }
+      }
+      
+      // Note: Active step highlighting will be updated via C++ → JavaScript communication
+      // when sequencer state changes. This requires additional implementation in PluginProcessor.
+
+      // Playback mode combo
+      const playbackModeCombo = document.getElementById('playback-mode');
+      if (playbackModeCombo) {
+        const comboState = getComboBoxState('playback_mode');
+        if (comboState) {
+          comboState.valueChangedEvent.addListener((index) => {
+            playbackModeCombo.selectedIndex = index;
+          });
+          playbackModeCombo.addEventListener('change', (e) => {
+            comboState.setSelectedItemIndex(e.target.selectedIndex);
+          });
+        }
+      }
+
+      // Loop toggle
+      const loopToggle = document.getElementById('loop-toggle');
+      if (loopToggle) {
+        const toggleState = getToggleButtonState('loop_mode');
+        if (toggleState) {
+          toggleState.valueChangedEvent.addListener((value) => {
+            loopToggle.classList.toggle('active', value);
+          });
+          loopToggle.addEventListener('click', () => {
+            toggleState.setValue(!toggleState.getValue());
+          });
+          // Initialize
+          loopToggle.classList.toggle('active', toggleState.getValue());
+        }
+      }
+
+      // Crossfade slider
+      const crossfadeSlider = document.getElementById('crossfade-slider');
+      if (crossfadeSlider) {
+        const crossfadeState = getSliderState('crossfade_time');
+        if (crossfadeState) bindSlider(crossfadeSlider, crossfadeState, 'crossfade_time');
+      }
+    }
+
+    // Initialize all bindings when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      bindGlobalParameters();
+      bindSequencerParameters();
+      updateRegionControls(1); // This will bind region 1 parameters
+    });
+  </script>
+</body>
+</html>
