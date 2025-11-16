@@ -1,0 +1,66 @@
+# MuSam WebView UI Configuration
+# Generated from v1 mockup finalization
+# Append this to plugins/MuSam/CMakeLists.txt during Stage 3 (GUI)
+
+# ==============================================================================
+# WebView UI Resources
+# ==============================================================================
+
+# Bundle HTML/JS files into plugin binary
+juce_add_binary_data(MuSam_UIResources
+    SOURCES
+        Source/ui/public/index.html
+        Source/ui/public/js/juce/index.js
+        Source/ui/public/js/juce/check_native_interop.js
+)
+
+# Link UI resources to plugin
+target_link_libraries(MuSam
+    PRIVATE
+        MuSam_UIResources
+        juce::juce_gui_extra  # Required for WebBrowserComponent
+)
+
+# ==============================================================================
+# WebView Compile Definitions
+# ==============================================================================
+
+target_compile_definitions(MuSam
+    PUBLIC
+        JUCE_WEB_BROWSER=1       # Enable WebView support
+        JUCE_USE_CURL=0          # Disable CURL (not needed for local files)
+)
+
+# ==============================================================================
+# Plugin Configuration (ensure these are set in main CMakeLists.txt)
+# ==============================================================================
+
+# NOTE: The following must be present in juce_add_plugin() call:
+#
+# juce_add_plugin(MuSam
+#     COMPANY_NAME "YourCompany"
+#     PLUGIN_MANUFACTURER_CODE Manu
+#     PLUGIN_CODE MuSa
+#     FORMATS VST3 AU Standalone
+#     PRODUCT_NAME "MuSam"
+#     NEEDS_WEB_BROWSER TRUE    # CRITICAL: Required for VST3 WebView
+#     IS_SYNTH TRUE             # MuSam is an instrument (MIDI input)
+#     NEEDS_MIDI_INPUT TRUE     # Accepts MIDI
+# )
+
+# ==============================================================================
+# Integration Checklist
+# ==============================================================================
+
+# Before adding this snippet:
+# 1. Copy v1-ui.html to Source/ui/public/index.html
+# 2. Copy JUCE frontend library to Source/ui/public/js/juce/index.js
+# 3. Copy check_native_interop.js to Source/ui/public/js/juce/check_native_interop.js
+# 4. Replace PluginEditor.h with v1-PluginEditor.h content
+# 5. Replace PluginEditor.cpp with v1-PluginEditor.cpp content
+# 6. Verify member order: relays → webView → attachments
+#
+# After adding this snippet:
+# 1. Build: cmake --build build --target MuSam_VST3 MuSam_AU MuSam_Standalone
+# 2. Install: ./scripts/build-and-install.sh MuSam
+# 3. Test in DAW after restarting DAW (cache clear)
