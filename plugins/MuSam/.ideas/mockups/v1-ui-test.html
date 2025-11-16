@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MuSam UI Mockup v1 - Apple Liquid Glass</title>
+
+  <style>
+    /* CRITICAL: WebView constraints - NO viewport units */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      /* Native application feel */
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      cursor: default;
+      overflow: hidden;
+
+      /* Centering frame for testing */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Fixed-size preview frame (REQUIRED for test HTML) */
+    .plugin-frame {
+      width: 900px;
+      height: 600px;
+      border: 2px solid #444;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      overflow: hidden;
+      position: relative;
+      background: #1a1a1a;
+    }
+
+    /* Main container fills frame */
+    .container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: #1a1a1a;
+    }
+
+    /* Apple Liquid Glass Panel */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* Header */
+    .header {
+      position: absolute;
+      top: 10px;
+      left: 20px;
+      right: 140px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+    }
+
+    .plugin-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+
+    /* Right Sidebar */
+    .sidebar {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 100px;
+      height: 560px;
+    }
+
+    .sidebar-section {
+      margin-bottom: 30px;
+    }
+
+    .sidebar-label {
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Waveform Display */
+    .waveform-container {
+      position: absolute;
+      top: 50px;
+      left: 90px;
+      width: 660px;
+      height: 200px;
+    }
+
+    .waveform-display {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .waveform-canvas {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .region-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      cursor: ew-resize;
+      z-index: 10;
+      transition: width 0.15s, box-shadow 0.15s;
+    }
+
+    .region-marker:hover {
+      width: 6px;
+      box-shadow: 0 0 12px currentColor;
+    }
+
+    .region-marker.active {
+      width: 5px;
+      box-shadow: 0 0 20px currentColor;
+    }
+
+    .region-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      opacity: 0.15;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    .region-fill.active {
+      opacity: 0.3;
+    }
+
+    /* Region Control Strip */
+    .region-controls {
+      position: absolute;
+      top: 270px;
+      left: 40px;
+      width: 720px;
+      height: 120px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-label {
+      font-size: 11px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Sliders */
+    .slider-vertical {
+      width: 40px;
+      height: 80px;
+      position: relative;
+    }
+
+    .slider-track {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    .slider-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: linear-gradient(180deg, rgba(100, 200, 255, 0.8), rgba(100, 200, 255, 0.4));
+      border-radius: 2px;
+      transition: height 0.05s;
+    }
+
+    .slider-thumb {
+      position: absolute;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .slider-thumb:hover {
+      transform: translate(-50%, -50%) scale(1.1);
+    }
+
+    .slider-thumb:active {
+      transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    .slider-value {
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: #64C8FF;
+      white-space: nowrap;
+    }
+
+    /* Knobs */
+    .knob {
+      width: 60px;
+      height: 60px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .knob-body {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.5),
+        inset 0 2px 4px rgba(255, 255, 255, 0.1),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+      transform-origin: center center;
+      transition: transform 0.05s;
+      position: relative;
+    }
+
+    .knob-indicator {
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3px;
+      height: 16px;
+      background: #64C8FF;
+      border-radius: 2px;
+      box-shadow: 0 0 8px rgba(100, 200, 255, 0.6);
+    }
+
+    .knob:hover .knob-body {
+      border-color: rgba(100, 200, 255, 0.3);
+    }
+
+    .knob-value {
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: #64C8FF;
+      white-space: nowrap;
+    }
+
+    /* Sequencer */
+    .sequencer {
+      position: absolute;
+      top: 420px;
+      left: 90px;
+      width: 660px;
+      height: 80px;
+    }
+
+    .sequencer-steps {
+      display: flex;
+      gap: 12px;
+      height: 60px;
+    }
+
+    .sequencer-step {
+      flex: 1;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sequencer-step::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .sequencer-step:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .sequencer-step.active::before {
+      opacity: 1;
+    }
+
+    .step-number {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.3);
+      font-weight: 600;
+    }
+
+    /* Sequencer Controls */
+    .sequencer-controls {
+      position: absolute;
+      top: 530px;
+      left: 90px;
+      width: 660px;
+      height: 50px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      padding: 0 15px;
+    }
+
+    /* Toggle Button */
+    .toggle {
+      width: 50px;
+      height: 24px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle.active {
+      background: rgba(100, 200, 255, 0.4);
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+    }
+
+    .toggle.active .toggle-thumb {
+      transform: translateX(26px);
+    }
+
+    /* Combo Box */
+    .combo-box {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .combo-box:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(100, 200, 255, 0.3);
+    }
+
+    /* Debug Monitor (test only) */
+    .debug-monitor {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 8px 12px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      min-width: 200px;
+      pointer-events: none;
+      z-index: 10000;
+    }
+
+    .debug-label {
+      color: #666;
+      font-size: 9px;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .debug-param {
+      font-weight: bold;
+      color: #0f0;
+    }
+
+    .debug-value {
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .debug-normalized {
+      color: #888;
+      font-size: 10px;
+    }
+
+    /* Region Colors */
+    .region-1 { background-color: #00D9FF; color: #00D9FF; }
+    .region-2 { background-color: #FF00D9; color: #FF00D9; }
+    .region-3 { background-color: #FFD900; color: #FFD900; }
+    .region-4 { background-color: #00FF7F; color: #00FF7F; }
+    .region-5 { background-color: #FF8C00; color: #FF8C00; }
+  </style>
+</head>
+<body>
+  <div class="plugin-frame">
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <div class="plugin-title">MuSam</div>
+      </div>
+
+      <!-- Right Sidebar -->
+      <div class="sidebar glass-panel">
+        <div class="sidebar-section">
+          <div class="sidebar-label">Speed</div>
+          <div class="slider-vertical" id="speed-slider" data-param="speed" data-min="0.5" data-max="2.0" data-default="1.0">
+            <div class="slider-track">
+              <div class="slider-fill" style="height: 50%;"></div>
+            </div>
+            <div class="slider-thumb" style="top: 50%;"></div>
+            <div class="slider-value">1.00x</div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Volume</div>
+          <div class="slider-vertical" id="volume-slider" data-param="volume" data-min="-60" data-max="0" data-default="-6">
+            <div class="slider-track">
+              <div class="slider-fill" style="height: 90%;"></div>
+            </div>
+            <div class="slider-thumb" style="top: 10%;"></div>
+            <div class="slider-value">-6.0 dB</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Waveform Display -->
+      <div class="waveform-container glass-panel">
+        <div class="waveform-display">
+          <canvas class="waveform-canvas" id="waveform" width="660" height="200"></canvas>
+
+          <!-- Region fills (colored backgrounds) -->
+          <div class="region-fill region-1 active" style="left: 0%; width: 20%;"></div>
+          <div class="region-fill region-2" style="left: 20%; width: 20%;"></div>
+          <div class="region-fill region-3" style="left: 40%; width: 20%;"></div>
+          <div class="region-fill region-4" style="left: 60%; width: 20%;"></div>
+          <div class="region-fill region-5" style="left: 80%; width: 20%;"></div>
+
+          <!-- Region markers (draggable vertical lines) -->
+          <div class="region-marker region-1 active" style="left: 0%;" data-region="1"></div>
+          <div class="region-marker region-2" style="left: 20%;" data-region="2"></div>
+          <div class="region-marker region-3" style="left: 40%;" data-region="3"></div>
+          <div class="region-marker region-4" style="left: 60%;" data-region="4"></div>
+          <div class="region-marker region-5" style="left: 80%;" data-region="5"></div>
+        </div>
+      </div>
+
+      <!-- Region Control Strip (shows controls for selected region) -->
+      <div class="region-controls glass-panel">
+        <div class="control-group">
+          <div class="control-label">Pitch</div>
+          <div class="slider-vertical" id="pitch-slider" data-param="region_1_pitch" data-min="-24" data-max="24" data-default="0">
+            <div class="slider-track">
+              <div class="slider-fill" style="height: 50%;"></div>
+            </div>
+            <div class="slider-thumb" style="top: 50%;"></div>
+            <div class="slider-value">0 st</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Cutoff</div>
+          <div class="knob" id="cutoff-knob" data-param="region_1_filter_cutoff" data-min="20" data-max="20000" data-default="20000">
+            <div class="knob-body" style="transform: rotate(135deg);">
+              <div class="knob-indicator"></div>
+            </div>
+            <div class="knob-value">20.0 kHz</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Resonance</div>
+          <div class="knob" id="resonance-knob" data-param="region_1_filter_resonance" data-min="0" data-max="100" data-default="0">
+            <div class="knob-body" style="transform: rotate(-135deg);">
+              <div class="knob-indicator"></div>
+            </div>
+            <div class="knob-value">0%</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Attack</div>
+          <div class="slider-vertical" id="attack-slider" data-param="region_1_attack" data-min="0" data-max="1000" data-default="10">
+            <div class="slider-track">
+              <div class="slider-fill" style="height: 1%;"></div>
+            </div>
+            <div class="slider-thumb" style="top: 99%;"></div>
+            <div class="slider-value">10 ms</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Decay</div>
+          <div class="slider-vertical" id="decay-slider" data-param="region_1_decay" data-min="0" data-max="5000" data-default="500">
+            <div class="slider-track">
+              <div class="slider-fill" style="height: 10%;"></div>
+            </div>
+            <div class="slider-thumb" style="top: 90%;"></div>
+            <div class="slider-value">500 ms</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Pan</div>
+          <div class="knob" id="pan-knob" data-param="region_1_pan" data-min="-100" data-max="100" data-default="0">
+            <div class="knob-body" style="transform: rotate(0deg);">
+              <div class="knob-indicator"></div>
+            </div>
+            <div class="knob-value">C</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sequencer -->
+      <div class="sequencer glass-panel">
+        <div class="sequencer-steps">
+          <div class="sequencer-step region-1 active" data-step="1">
+            <span class="step-number">1</span>
+          </div>
+          <div class="sequencer-step region-2" data-step="2">
+            <span class="step-number">2</span>
+          </div>
+          <div class="sequencer-step region-3" data-step="3">
+            <span class="step-number">3</span>
+          </div>
+          <div class="sequencer-step region-4" data-step="4">
+            <span class="step-number">4</span>
+          </div>
+          <div class="sequencer-step region-5" data-step="5">
+            <span class="step-number">5</span>
+          </div>
+          <div class="sequencer-step" data-step="6">
+            <span class="step-number">6</span>
+          </div>
+          <div class="sequencer-step" data-step="7">
+            <span class="step-number">7</span>
+          </div>
+          <div class="sequencer-step" data-step="8">
+            <span class="step-number">8</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sequencer Controls -->
+      <div class="sequencer-controls glass-panel">
+        <div class="control-group">
+          <div class="control-label">Mode</div>
+          <select class="combo-box" id="playback-mode">
+            <option>Sequential</option>
+            <option>Random</option>
+            <option>Custom</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Loop</div>
+          <div class="toggle active" id="loop-toggle">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Crossfade</div>
+          <div class="slider-vertical" id="crossfade-slider" data-param="crossfade_time" data-min="0" data-max="500" data-default="50" style="width: 100px; height: 30px;">
+            <div class="slider-track">
+              <div class="slider-fill" style="height: 10%;"></div>
+            </div>
+            <div class="slider-thumb" style="top: 90%;"></div>
+            <div class="slider-value">50 ms</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debug Monitor (test only) -->
+  <div class="debug-monitor">
+    <div class="debug-label">PARAMETER MONITOR</div>
+    <div class="debug-param" id="debugParam">—</div>
+    <div class="debug-value" id="debugValue">—</div>
+    <div class="debug-normalized" id="debugNormalized">—</div>
+  </div>
+
+  <script>
+    // Mock JUCE backend for browser testing
+    window.Juce = {
+      getSliderState: (id) => ({
+        normalisedValue: 0.5,
+        valueChangedEvent: {
+          addListener: (fn) => console.log(`Listener added for ${id}`)
+        },
+        setNormalisedValue: (v) => console.log(`${id} set to ${v}`)
+      }),
+      getToggleState: (id) => ({
+        value: false,
+        valueChangedEvent: {
+          addListener: (fn) => console.log(`Listener added for ${id}`)
+        },
+        setValue: (v) => console.log(`${id} set to ${v}`)
+      }),
+      getComboBoxState: (id) => ({
+        selectedId: 0,
+        valueChangedEvent: {
+          addListener: (fn) => console.log(`Listener added for ${id}`)
+        },
+        setSelectedId: (v) => console.log(`${id} set to ${v}`)
+      })
+    };
+
+    // Disable context menu (REQUIRED)
+    document.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      return false;
+    });
+
+    // Debug monitor update
+    function updateDebugMonitor(paramId, value, normalizedValue) {
+      document.getElementById('debugParam').textContent = paramId;
+      document.getElementById('debugValue').textContent = value;
+      document.getElementById('debugNormalized').textContent = `${(normalizedValue * 100).toFixed(1)}%`;
+    }
+
+    // Draw waveform
+    const canvas = document.getElementById('waveform');
+    const ctx = canvas.getContext('2d');
+
+    function drawWaveform() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw outline waveform
+      ctx.strokeStyle = '#64C8FF';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      const centerY = canvas.height / 2;
+      const amplitude = 60;
+
+      for (let x = 0; x < canvas.width; x++) {
+        const t = x / canvas.width;
+        const y = centerY + Math.sin(t * Math.PI * 16) * amplitude * Math.exp(-t * 2);
+
+        if (x === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+
+      ctx.stroke();
+
+      // Draw fill
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.lineTo(canvas.width, centerY);
+      ctx.lineTo(0, centerY);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    drawWaveform();
+
+    // Vertical slider interaction
+    let activeSlider = null;
+
+    document.querySelectorAll('.slider-vertical').forEach(slider => {
+      const thumb = slider.querySelector('.slider-thumb');
+      const fill = slider.querySelector('.slider-fill');
+      const valueDisplay = slider.querySelector('.slider-value');
+      const track = slider.querySelector('.slider-track');
+
+      const min = parseFloat(slider.dataset.min);
+      const max = parseFloat(slider.dataset.max);
+      const paramId = slider.dataset.param;
+
+      function updateSlider(clientY) {
+        const rect = track.getBoundingClientRect();
+        const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+        const percentage = 1 - (y / rect.height);
+
+        const value = min + percentage * (max - min);
+
+        thumb.style.top = `${y}px`;
+        fill.style.height = `${percentage * 100}%`;
+
+        // Format value
+        let formatted;
+        if (paramId === 'speed') {
+          formatted = `${value.toFixed(2)}x`;
+        } else if (paramId === 'volume') {
+          formatted = `${value.toFixed(1)} dB`;
+        } else if (paramId.includes('pitch')) {
+          formatted = `${Math.round(value)} st`;
+        } else if (paramId.includes('attack') || paramId.includes('decay') || paramId.includes('crossfade')) {
+          formatted = `${Math.round(value)} ms`;
+        } else {
+          formatted = value.toFixed(1);
+        }
+
+        valueDisplay.textContent = formatted;
+        updateDebugMonitor(paramId, formatted, percentage);
+
+        console.log(`${paramId}: ${value} (${(percentage * 100).toFixed(1)}%)`);
+      }
+
+      thumb.addEventListener('mousedown', (e) => {
+        activeSlider = slider;
+        e.preventDefault();
+      });
+
+      track.addEventListener('click', (e) => {
+        updateSlider(e.clientY);
+      });
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (activeSlider) {
+        const track = activeSlider.querySelector('.slider-track');
+        const rect = track.getBoundingClientRect();
+        const thumb = activeSlider.querySelector('.slider-thumb');
+        const fill = activeSlider.querySelector('.slider-fill');
+        const valueDisplay = activeSlider.querySelector('.slider-value');
+
+        const min = parseFloat(activeSlider.dataset.min);
+        const max = parseFloat(activeSlider.dataset.max);
+        const paramId = activeSlider.dataset.param;
+
+        const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+        const percentage = 1 - (y / rect.height);
+        const value = min + percentage * (max - min);
+
+        thumb.style.top = `${y}px`;
+        fill.style.height = `${percentage * 100}%`;
+
+        let formatted;
+        if (paramId === 'speed') {
+          formatted = `${value.toFixed(2)}x`;
+        } else if (paramId === 'volume') {
+          formatted = `${value.toFixed(1)} dB`;
+        } else if (paramId.includes('pitch')) {
+          formatted = `${Math.round(value)} st`;
+        } else if (paramId.includes('attack') || paramId.includes('decay') || paramId.includes('crossfade')) {
+          formatted = `${Math.round(value)} ms`;
+        } else {
+          formatted = value.toFixed(1);
+        }
+
+        valueDisplay.textContent = formatted;
+        updateDebugMonitor(paramId, formatted, percentage);
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      activeSlider = null;
+    });
+
+    // Knob interaction
+    let activeKnob = null;
+    let knobStartY = 0;
+    let knobStartValue = 0;
+
+    document.querySelectorAll('.knob').forEach(knob => {
+      const body = knob.querySelector('.knob-body');
+      const valueDisplay = knob.querySelector('.knob-value');
+
+      const min = parseFloat(knob.dataset.min);
+      const max = parseFloat(knob.dataset.max);
+      const paramId = knob.dataset.param;
+
+      knob.addEventListener('mousedown', (e) => {
+        activeKnob = knob;
+        knobStartY = e.clientY;
+
+        const currentRotation = parseFloat(body.style.transform.replace(/[^-\d.]/g, '')) || 0;
+        const normalizedRotation = (currentRotation + 135) / 270;
+        knobStartValue = min + normalizedRotation * (max - min);
+
+        e.preventDefault();
+      });
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (activeKnob) {
+        const body = activeKnob.querySelector('.knob-body');
+        const valueDisplay = activeKnob.querySelector('.knob-value');
+
+        const min = parseFloat(activeKnob.dataset.min);
+        const max = parseFloat(activeKnob.dataset.max);
+        const paramId = activeKnob.dataset.param;
+
+        const deltaY = knobStartY - e.clientY;
+        const sensitivity = 0.5;
+        const deltaValue = deltaY * sensitivity;
+
+        let value = knobStartValue + deltaValue;
+        value = Math.max(min, Math.min(max, value));
+
+        const normalized = (value - min) / (max - min);
+        const degrees = -135 + (normalized * 270);
+
+        body.style.transform = `rotate(${degrees}deg)`;
+
+        // Format value
+        let formatted;
+        if (paramId.includes('cutoff')) {
+          formatted = value >= 1000 ? `${(value/1000).toFixed(1)} kHz` : `${Math.round(value)} Hz`;
+        } else if (paramId.includes('resonance')) {
+          formatted = `${Math.round(value)}%`;
+        } else if (paramId.includes('pan')) {
+          if (value < -5) formatted = `${Math.round(-value)}L`;
+          else if (value > 5) formatted = `${Math.round(value)}R`;
+          else formatted = 'C';
+        } else {
+          formatted = value.toFixed(1);
+        }
+
+        valueDisplay.textContent = formatted;
+        updateDebugMonitor(paramId, formatted, normalized);
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      activeKnob = null;
+    });
+
+    // Region marker selection
+    let selectedRegion = 1;
+
+    document.querySelectorAll('.region-marker').forEach(marker => {
+      marker.addEventListener('click', (e) => {
+        const region = parseInt(marker.dataset.region);
+
+        // Update active states
+        document.querySelectorAll('.region-marker').forEach(m => m.classList.remove('active'));
+        document.querySelectorAll('.region-fill').forEach(f => f.classList.remove('active'));
+
+        marker.classList.add('active');
+        document.querySelectorAll('.region-fill')[region - 1].classList.add('active');
+
+        selectedRegion = region;
+
+        console.log(`Selected region ${region}`);
+        updateDebugMonitor(`region_${region}_selected`, `Region ${region}`, region / 5);
+
+        e.stopPropagation();
+      });
+    });
+
+    // Toggle interaction
+    document.getElementById('loop-toggle').addEventListener('click', function() {
+      this.classList.toggle('active');
+      const isActive = this.classList.contains('active');
+      console.log(`Loop: ${isActive ? 'On' : 'Off'}`);
+      updateDebugMonitor('loop_mode', isActive ? 'On' : 'Off', isActive ? 1 : 0);
+    });
+
+    // Combo box interaction
+    document.getElementById('playback-mode').addEventListener('change', function() {
+      console.log(`Playback mode: ${this.value}`);
+      updateDebugMonitor('playback_mode', this.value, this.selectedIndex / 2);
+    });
+
+    // Sequencer step interaction
+    document.querySelectorAll('.sequencer-step').forEach(step => {
+      step.addEventListener('click', function() {
+        const stepNum = this.dataset.step;
+        console.log(`Step ${stepNum} clicked`);
+        updateDebugMonitor(`step_${stepNum}`, `Step ${stepNum}`, stepNum / 8);
+      });
+    });
+
+    console.log('MuSam UI Mockup v1 loaded - Apple Liquid Glass aesthetic');
+    console.log('Total parameters: 53 (2 global + 40 region + 11 sequencer)');
+    console.log('Region colors: Cyan, Magenta, Yellow, Green, Orange');
+  </script>
+</body>
+</html>
