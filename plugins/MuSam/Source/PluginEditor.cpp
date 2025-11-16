@@ -2,7 +2,7 @@
 #include "PluginEditor.h"
 
 MuSamAudioProcessorEditor::MuSamAudioProcessorEditor(MuSamAudioProcessor& p)
-    : AudioProcessorEditor(&p), processorRef(p)
+    : AudioProcessorEditor(p), processorRef(p)
 {
     // Set plugin window size (will be replaced with WebView in Stage 3)
     setSize(400, 300);

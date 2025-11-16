@@ -11,14 +11,13 @@ juce_add_plugin(MuSam
     NEEDS_WEB_BROWSER TRUE
 )
 
-# WebView UI Resources
-# Embed all UI files into plugin binary
-juce_add_binary_data(MuSam_UIResources
-    SOURCES
-        Source/ui/public/index.html
-        Source/ui/public/js/juce/index.js
-        Source/ui/public/js/juce/check_native_interop.js
-)
+# WebView UI Resources (will be added in Stage 3)
+# juce_add_binary_data(MuSam_UIResources
+#     SOURCES
+#         Source/ui/public/index.html
+#         Source/ui/public/js/juce/index.js
+#         Source/ui/public/js/juce/check_native_interop.js
+# )
 
 # Source files
 target_sources(MuSam
@@ -36,7 +35,7 @@ target_include_directories(MuSam
 # Required JUCE modules
 target_link_libraries(MuSam
     PRIVATE
-        MuSam_UIResources
+        # MuSam_UIResources  # Will be added in Stage 3
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
