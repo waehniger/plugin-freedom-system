@@ -1,7 +1,7 @@
 # MuSam Notes
 
 ## Status
-- **Current Status:** ✅ Working
+- **Current Status:** 📦 Installed
 - **Version:** 1.0.0
 - **Type:** Sampler/Effect
 - **Complexity Score:** 4.2 (Complex)
@@ -15,6 +15,7 @@
 - **2025-11-16 (Stage 2):** Audio Engine Working - All DSP components implemented (4 phases: Core Playback, Per-Region Processing, Pitch Shifting, Sequencer)
 - **2025-11-16 (Stage 3):** UI Integrated - WebView UI complete with all 53 parameters bound (3 phases: Layout, Parameter Binding, Advanced UI Elements)
 - **2025-11-16 (v1.0.0):** Validation complete - Semantic validation passed, plugin ready for installation
+- **2025-11-16 (v1.0.0):** Installation complete - VST3 and AU installed to system folders (5.5MB each)
 
 ## Known Issues
 
@@ -56,3 +57,9 @@ Multi-region sample sequencer with crossfading playback and color-coded interfac
 - Equal-power or linear crossfading between regions
 - Classic lowpass filter with resonance
 - Variable-rate playback engine (Speed affects tempo + pitch)
+
+**Formats:** VST3, AU, Standalone
+
+**Installation Locations:**
+- VST3: `~/Library/Audio/Plug-Ins/VST3/MuSam.vst3` (5.5 MB)
+- AU: `~/Library/Audio/Plug-Ins/Components/MuSam.component` (5.5 MB)
