@@ -15,6 +15,8 @@ public:
 
     void run() override
     {
+        juce::Logger::writeToLog("MuSam: SampleLoaderThread started for: " + fileToLoad.getFullPathName());
+        
         auto* reader = processorRef.formatManager.createReaderFor(fileToLoad);
         
         if (reader != nullptr)
@@ -22,6 +24,11 @@ public:
             auto numChannels = static_cast<int>(reader->numChannels);
             auto numSamples = static_cast<int>(reader->lengthInSamples);
             auto sampleRate = reader->sampleRate;
+
+            juce::Logger::writeToLog("MuSam: File loaded successfully - " +
+                                     juce::String(numChannels) + " channels, " +
+                                     juce::String(numSamples) + " samples, " +
+                                     juce::String(sampleRate) + " Hz");
 
             auto newBuffer = std::make_unique<juce::AudioBuffer<float>>(numChannels, numSamples);
             reader->read(newBuffer.get(), 0, numSamples, 0, true, true);
@@ -33,7 +40,19 @@ public:
             processorRef.sampleBuffer = std::move(newBuffer);
             processorRef.sampleReady.store(true);
 
+            // Update region boundaries on message thread after sample is loaded
+            juce::MessageManager::callAsync([this]() {
+                processorRef.updateRegionBoundaries();
+            });
+
+            juce::Logger::writeToLog("MuSam: Sample buffer ready for playback");
             delete reader;
+        }
+        else
+        {
+            juce::Logger::writeToLog("MuSam: ERROR - Could not create reader for file: " + 
+                                     fileToLoad.getFullPathName() + 
+                                     ". Format may not be supported or file may be corrupted.");
         }
     }
 
@@ -295,8 +314,8 @@ void MuSamAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
     if (activeBuffer == nullptr || activeBuffer->getNumSamples() == 0)
         return;
     
-    // Update region boundaries from parameters
-    updateRegionBoundaries();
+    // Note: Region boundaries are updated on parameter changes and state load,
+    // not in processBlock() to avoid race conditions with setStateInformation()
     
     // Phase 4.2: Update filter coefficients (may change during playback)
     for (int i = 0; i < 5; ++i)
@@ -442,8 +461,20 @@ void MuSamAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
     
     if (xmlState != nullptr && xmlState->hasTagName(parameters.state.getType()))
     {
+        // CRITICAL: Suspend audio processing to prevent race conditions
+        // when replaceState() modifies APVTS while processBlock() reads parameters
+        suspendProcessing(true);
+        
         parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
-        updateRegionBoundaries();
+        
+        // Resume audio processing after state is loaded
+        suspendProcessing(false);
+        
+        // Update region boundaries after state is loaded (if sample is ready)
+        if (sampleReady.load() && activeSampleBuffer.load() != nullptr)
+        {
+            updateRegionBoundaries();
+        }
     }
 }
 
