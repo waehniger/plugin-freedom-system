@@ -53,21 +53,30 @@ private:
     class Voice
     {
     public:
+        enum State { IDLE, PLAYING, RELEASING };
+
         Voice();
 
         void prepare(double sampleRate, int maxGrainSize);
         void startNote(int midiNote, float velocity);
         void stopNote();
+        void retrigger(int midiNote, float velocity);
+        void triggerQuickRelease();
         void processBlock(juce::AudioBuffer<float>& output, int numSamples,
-                         float grainSizeMs, float density, float pitchShiftSemitones, float spacing);
+                         float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
+                         float regionStart, float regionEnd);
 
-        bool isPlaying() const { return playing; }
+        bool isPlaying() const { return state == PLAYING; }
+        bool isActive() const { return state != IDLE; }
+        int getNoteNumber() const { return midiNoteNumber; }
+        int getAge() const { return voiceAge; }
 
     private:
         void generateTestSample(double sampleRate);
         void generateHannWindow(int grainSize);
-        void generateGrain(int grainSamples, float spacing);
+        void generateGrain(int grainSamples, float spacing, float regionStart, float regionEnd);
         float readFractionalSample(float position);
+        void processEnvelope();
 
         juce::AudioBuffer<float> sampleBuffer;  // Test sample (sine wave)
         std::vector<float> hannWindow;          // Pre-calculated Hann window
@@ -77,16 +86,42 @@ private:
 
         float grainPhase;          // Current sample position in source for grain extraction
         int samplesUntilNextGrain; // Sample counter until next grain trigger
-        bool playing;
+        State state;
         int midiNoteNumber;
         float noteVelocity;
+        float envelopeLevel;       // 0.0-1.0 envelope amplitude
+        float releaseRate;         // Envelope release rate (per sample)
+        int voiceAge;              // Age in samples (for voice stealing)
 
         double currentSampleRate;
         int maxGrainSamples;
     };
 
+    // Voice Manager for polyphonic voice allocation
+    class VoiceManager
+    {
+    public:
+        static constexpr int MAX_VOICES = 16;
+
+        VoiceManager();
+
+        void prepare(double sampleRate, int maxGrainSize);
+        void handleNoteOn(int noteNumber, float velocity, bool monoMode);
+        void handleNoteOff(int noteNumber, bool monoMode);
+        void handleAllNotesOff();
+        void processBlock(juce::AudioBuffer<float>& output, int numSamples,
+                         float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
+                         float regionStart, float regionEnd);
+
+    private:
+        Voice* allocateVoice(int noteNumber, bool monoMode);
+        Voice* findVoiceForNote(int noteNumber);
+
+        std::vector<Voice> voices;
+    };
+
     // DSP Components
-    Voice monoVoice;  // Single monophonic voice for Phase 2.1
+    VoiceManager voiceManager;  // Phase 2.3: Full polyphonic voice management
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SektorAudioProcessor)
 };

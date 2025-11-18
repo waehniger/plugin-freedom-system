@@ -8,9 +8,12 @@
 SektorAudioProcessor::Voice::Voice()
     : grainPhase(0.0f)
     , samplesUntilNextGrain(0)
-    , playing(false)
+    , state(IDLE)
     , midiNoteNumber(0)
     , noteVelocity(0.0f)
+    , envelopeLevel(0.0f)
+    , releaseRate(0.0f)
+    , voiceAge(0)
     , currentSampleRate(44100.0)
     , maxGrainSamples(0)
 {
@@ -65,9 +68,11 @@ void SektorAudioProcessor::Voice::startNote(int midiNote, float velocity)
 {
     midiNoteNumber = midiNote;
     noteVelocity = velocity;
-    playing = true;
+    state = PLAYING;
+    envelopeLevel = 1.0f;  // Instant attack
     grainPhase = 0.0f;
     samplesUntilNextGrain = 0;  // Trigger first grain immediately
+    voiceAge = 0;
 
     // Clear all active grains
     for (auto& grain : activeGrains)
@@ -78,10 +83,56 @@ void SektorAudioProcessor::Voice::startNote(int midiNote, float velocity)
 
 void SektorAudioProcessor::Voice::stopNote()
 {
-    playing = false;
+    if (state == PLAYING)
+    {
+        state = RELEASING;
+        // Calculate 10ms release rate
+        releaseRate = 1.0f / (0.01f * static_cast<float>(currentSampleRate));
+    }
 }
 
-void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing)
+void SektorAudioProcessor::Voice::retrigger(int midiNote, float velocity)
+{
+    // Legato retrigger without release (mono mode)
+    midiNoteNumber = midiNote;
+    noteVelocity = velocity;
+    grainPhase = 0.0f;  // Reset grain phase for new note
+    samplesUntilNextGrain = 0;
+    voiceAge = 0;
+}
+
+void SektorAudioProcessor::Voice::triggerQuickRelease()
+{
+    // Fast release for voice stealing (10ms)
+    state = RELEASING;
+    releaseRate = 1.0f / (0.01f * static_cast<float>(currentSampleRate));
+}
+
+void SektorAudioProcessor::Voice::processEnvelope()
+{
+    if (state == PLAYING)
+    {
+        envelopeLevel = 1.0f;  // Full level during playback
+    }
+    else if (state == RELEASING)
+    {
+        envelopeLevel -= releaseRate;
+
+        if (envelopeLevel <= 0.0f)
+        {
+            envelopeLevel = 0.0f;
+            state = IDLE;
+
+            // Clear all active grains when voice becomes idle
+            for (auto& grain : activeGrains)
+            {
+                grain.isActive = false;
+            }
+        }
+    }
+}
+
+void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing, float regionStart, float regionEnd)
 {
     // Find free grain slot (or kill oldest)
     ActiveGrain* targetGrain = nullptr;
@@ -102,20 +153,45 @@ void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing)
         targetGrain = &activeGrains[0];
     }
 
-    // Initialize new grain
+    // Calculate region bounds in samples
+    int sampleLength = sampleBuffer.getNumSamples();
+    float regionStartSamples = regionStart * static_cast<float>(sampleLength);
+    float regionEndSamples = regionEnd * static_cast<float>(sampleLength);
+    float regionLength = regionEndSamples - regionStartSamples;
+
+    // Validate region (ensure minimum 10ms gap)
+    const float minGapSamples = 0.01f * static_cast<float>(currentSampleRate);
+    if (regionLength < minGapSamples)
+    {
+        // Fall back to full sample if region invalid
+        regionStartSamples = 0.0f;
+        regionEndSamples = static_cast<float>(sampleLength);
+        regionLength = regionEndSamples - regionStartSamples;
+    }
+
+    // Wrap grain phase within region bounds
+    while (grainPhase >= regionLength)
+    {
+        grainPhase -= regionLength;
+    }
+    while (grainPhase < 0.0f)
+    {
+        grainPhase += regionLength;
+    }
+
+    // Initialize new grain (grain start position is within region)
     targetGrain->readPosition = 0.0f;
     targetGrain->samplesRemaining = grainSamples;
-    targetGrain->grainStartPhase = grainPhase;
+    targetGrain->grainStartPhase = regionStartSamples + grainPhase;  // Absolute position in sample buffer
     targetGrain->isActive = true;
 
     // Advance grain phase for next grain (spacing controls advancement)
     grainPhase += static_cast<float>(grainSamples) * spacing;
 
-    // Wrap grain phase at sample buffer length
-    int sampleLength = sampleBuffer.getNumSamples();
-    while (grainPhase >= static_cast<float>(sampleLength))
+    // Wrap grain phase at region boundary
+    while (grainPhase >= regionLength)
     {
-        grainPhase -= static_cast<float>(sampleLength);
+        grainPhase -= regionLength;
     }
 }
 
@@ -146,9 +222,10 @@ float SektorAudioProcessor::Voice::readFractionalSample(float position)
 }
 
 void SektorAudioProcessor::Voice::processBlock(juce::AudioBuffer<float>& output, int numSamples,
-                                                float grainSizeMs, float density, float pitchShiftSemitones, float spacing)
+                                                float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
+                                                float regionStart, float regionEnd)
 {
-    if (!playing || sampleBuffer.getNumSamples() == 0)
+    if (state == IDLE || sampleBuffer.getNumSamples() == 0)
         return;
 
     // Calculate grain size in samples
@@ -171,10 +248,13 @@ void SektorAudioProcessor::Voice::processBlock(juce::AudioBuffer<float>& output,
     // Process each output sample
     for (int sample = 0; sample < numSamples; ++sample)
     {
-        // Check if we need to trigger new grain
-        if (samplesUntilNextGrain <= 0)
+        // Update envelope
+        processEnvelope();
+
+        // Only trigger new grains if still playing (not in release)
+        if (state == PLAYING && samplesUntilNextGrain <= 0)
         {
-            generateGrain(grainSamples, spacing);
+            generateGrain(grainSamples, spacing, regionStart, regionEnd);
             samplesUntilNextGrain = grainInterval;
         }
 
@@ -211,12 +291,166 @@ void SektorAudioProcessor::Voice::processBlock(juce::AudioBuffer<float>& output,
             }
         }
 
-        // Apply velocity and write to output buffer (mono to stereo)
-        outputSample *= noteVelocity;
+        // Apply velocity and envelope scaling
+        outputSample *= noteVelocity * envelopeLevel;
+
+        // Write to output buffer (mono to stereo)
         output.addSample(0, sample, outputSample);  // Left channel
         output.addSample(1, sample, outputSample);  // Right channel
 
         samplesUntilNextGrain--;
+        voiceAge++;
+    }
+}
+
+//==============================================================================
+// VoiceManager Implementation
+//==============================================================================
+
+SektorAudioProcessor::VoiceManager::VoiceManager()
+{
+    voices.resize(MAX_VOICES);
+}
+
+void SektorAudioProcessor::VoiceManager::prepare(double sampleRate, int maxGrainSize)
+{
+    for (auto& voice : voices)
+    {
+        voice.prepare(sampleRate, maxGrainSize);
+    }
+}
+
+Voice* SektorAudioProcessor::VoiceManager::allocateVoice(int noteNumber, bool monoMode)
+{
+    if (monoMode)
+    {
+        // Mono mode: Always use voice[0]
+        return &voices[0];
+    }
+
+    // Poly mode: Find free voice or steal oldest
+
+    // First, try to find a free voice (IDLE)
+    for (auto& voice : voices)
+    {
+        if (!voice.isActive())
+        {
+            return &voice;
+        }
+    }
+
+    // No free voices - steal oldest voice
+    Voice* oldestVoice = &voices[0];
+    int oldestAge = voices[0].getAge();
+
+    for (auto& voice : voices)
+    {
+        if (voice.getAge() > oldestAge)
+        {
+            oldestAge = voice.getAge();
+            oldestVoice = &voice;
+        }
+    }
+
+    // Trigger fast release on stolen voice
+    oldestVoice->triggerQuickRelease();
+
+    return oldestVoice;
+}
+
+Voice* SektorAudioProcessor::VoiceManager::findVoiceForNote(int noteNumber)
+{
+    // Find voice playing this specific MIDI note
+    for (auto& voice : voices)
+    {
+        if (voice.isPlaying() && voice.getNoteNumber() == noteNumber)
+        {
+            return &voice;
+        }
+    }
+
+    return nullptr;
+}
+
+void SektorAudioProcessor::VoiceManager::handleNoteOn(int noteNumber, float velocity, bool monoMode)
+{
+    Voice* voice = allocateVoice(noteNumber, monoMode);
+
+    if (monoMode && voice->isPlaying())
+    {
+        // Legato retrigger in mono mode
+        voice->retrigger(noteNumber, velocity);
+    }
+    else
+    {
+        // Fresh note start
+        voice->startNote(noteNumber, velocity);
+    }
+}
+
+void SektorAudioProcessor::VoiceManager::handleNoteOff(int noteNumber, bool monoMode)
+{
+    if (monoMode)
+    {
+        // In mono mode, note-off stops voice[0]
+        voices[0].stopNote();
+    }
+    else
+    {
+        // In poly mode, find and stop the voice playing this note
+        Voice* voice = findVoiceForNote(noteNumber);
+        if (voice != nullptr)
+        {
+            voice->stopNote();
+        }
+    }
+}
+
+void SektorAudioProcessor::VoiceManager::handleAllNotesOff()
+{
+    // Trigger release on all active voices
+    for (auto& voice : voices)
+    {
+        if (voice.isActive())
+        {
+            voice.stopNote();
+        }
+    }
+}
+
+void SektorAudioProcessor::VoiceManager::processBlock(juce::AudioBuffer<float>& output, int numSamples,
+                                                       float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
+                                                       float regionStart, float regionEnd)
+{
+    // Process all active voices
+    for (auto& voice : voices)
+    {
+        if (voice.isActive())
+        {
+            voice.processBlock(output, numSamples, grainSizeMs, density, pitchShiftSemitones, spacing, regionStart, regionEnd);
+        }
+    }
+
+    // Apply normalization factor to prevent clipping with many voices
+    // Normalization: 1.0 / sqrt(MAX_VOICES) ≈ 0.25 for 16 voices
+    const float voiceGain = 1.0f / std::sqrt(static_cast<float>(MAX_VOICES));
+
+    for (int channel = 0; channel < output.getNumChannels(); ++channel)
+    {
+        auto* channelData = output.getWritePointer(channel);
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            // Apply normalization and soft clipping
+            float value = channelData[sample] * voiceGain;
+
+            // Soft clipping with tanh if signal exceeds ±0.95
+            if (std::abs(value) > 0.95f)
+            {
+                value = std::tanh(value);
+            }
+
+            channelData[sample] = value;
+        }
     }
 }
 
@@ -302,9 +536,9 @@ SektorAudioProcessor::~SektorAudioProcessor()
 
 void SektorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Prepare voice with maximum grain size (500ms at current sample rate)
+    // Prepare voice manager with maximum grain size (500ms at current sample rate)
     int maxGrainSize = static_cast<int>((500.0 / 1000.0) * sampleRate);
-    monoVoice.prepare(sampleRate, maxGrainSize);
+    voiceManager.prepare(sampleRate, maxGrainSize);
 
     juce::ignoreUnused(samplesPerBlock);
 }
@@ -321,6 +555,23 @@ void SektorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     // Clear output buffer
     buffer.clear();
 
+    // Read parameters (atomic, real-time safe)
+    auto* grainSizeParam = parameters.getRawParameterValue("GRAIN_SIZE");
+    auto* densityParam = parameters.getRawParameterValue("DENSITY");
+    auto* pitchShiftParam = parameters.getRawParameterValue("PITCH_SHIFT");
+    auto* spacingParam = parameters.getRawParameterValue("SPACING");
+    auto* regionStartParam = parameters.getRawParameterValue("REGION_START");
+    auto* regionEndParam = parameters.getRawParameterValue("REGION_END");
+    auto* polyphonyModeParam = parameters.getRawParameterValue("POLYPHONY_MODE");
+
+    float grainSizeMs = grainSizeParam->load();
+    float density = densityParam->load();
+    float pitchShiftSemitones = pitchShiftParam->load();
+    float spacing = spacingParam->load();
+    float regionStart = regionStartParam->load();
+    float regionEnd = regionEndParam->load();
+    bool polyMode = (polyphonyModeParam->load() >= 0.5f);
+
     // Process MIDI messages (note-on/note-off)
     for (const auto metadata : midiMessages)
     {
@@ -330,30 +581,22 @@ void SektorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         {
             int noteNumber = message.getNoteNumber();
             float velocity = message.getVelocity() / 127.0f;
-            monoVoice.startNote(noteNumber, velocity);
+            voiceManager.handleNoteOn(noteNumber, velocity, !polyMode);  // !polyMode = monoMode
         }
         else if (message.isNoteOff())
         {
-            monoVoice.stopNote();
+            int noteNumber = message.getNoteNumber();
+            voiceManager.handleNoteOff(noteNumber, !polyMode);
+        }
+        else if (message.isAllNotesOff() || message.isController() && message.getControllerNumber() == 123)
+        {
+            // CC 123 = all notes off
+            voiceManager.handleAllNotesOff();
         }
     }
 
-    // Read parameters (atomic, real-time safe)
-    auto* grainSizeParam = parameters.getRawParameterValue("GRAIN_SIZE");
-    auto* densityParam = parameters.getRawParameterValue("DENSITY");
-    auto* pitchShiftParam = parameters.getRawParameterValue("PITCH_SHIFT");
-    auto* spacingParam = parameters.getRawParameterValue("SPACING");
-
-    float grainSizeMs = grainSizeParam->load();
-    float density = densityParam->load();
-    float pitchShiftSemitones = pitchShiftParam->load();
-    float spacing = spacingParam->load();
-
-    // Process voice if playing
-    if (monoVoice.isPlaying())
-    {
-        monoVoice.processBlock(buffer, buffer.getNumSamples(), grainSizeMs, density, pitchShiftSemitones, spacing);
-    }
+    // Process all active voices
+    voiceManager.processBlock(buffer, buffer.getNumSamples(), grainSizeMs, density, pitchShiftSemitones, spacing, regionStart, regionEnd);
 }
 
 juce::AudioProcessorEditor* SektorAudioProcessor::createEditor()
