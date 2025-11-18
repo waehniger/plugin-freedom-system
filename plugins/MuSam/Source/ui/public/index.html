@@ -103,6 +103,29 @@
       height: 200px;
     }
 
+    .waveform-container.drag-over {
+      border: 3px dashed rgba(100, 200, 255, 0.8);
+      background: rgba(100, 200, 255, 0.1);
+    }
+
+    .drop-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      color: #64C8FF;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 100;
+      text-align: center;
+    }
+
+    .drop-indicator.visible {
+      opacity: 1;
+    }
+
     .waveform-display {
       width: 100%;
       height: 100%;
@@ -182,6 +205,9 @@
       width: 40px;
       height: 80px;
       position: relative;
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     .slider-track {
@@ -192,6 +218,8 @@
       height: 100%;
       background: rgba(255, 255, 255, 0.1);
       border-radius: 2px;
+      pointer-events: auto;
+      cursor: pointer;
     }
 
     .slider-fill {
@@ -213,8 +241,16 @@
       background: #fff;
       border-radius: 50%;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-      cursor: pointer;
+      cursor: grab;
+      cursor: -webkit-grab;
       transition: transform 0.1s;
+      pointer-events: auto;
+      z-index: 10;
+    }
+    
+    .slider-thumb:active {
+      cursor: grabbing;
+      cursor: -webkit-grabbing;
     }
 
     .slider-thumb:hover {
@@ -418,6 +454,10 @@
     <!-- Header -->
     <div class="header">
       <div class="plugin-title">MuSam</div>
+      <!-- TEST BUTTON -->
+      <button id="test-button" style="position: absolute; top: 5px; right: 20px; padding: 10px; background-color: #64C8FF; color: #000; border: 2px solid #FF0000; border-radius: 5px; cursor: pointer; z-index: 10000; font-size: 14px; font-weight: bold;">TEST: Change Speed</button>
+      <!-- DEBUG: Add visible test to verify HTML loads -->
+      <div id="html-loaded-indicator" style="position: absolute; top: 50px; right: 20px; padding: 10px; background-color: #00FF00; color: #000; border: 2px solid #000; z-index: 10001; font-weight: bold;">HTML LOADED!</div>
     </div>
 
     <!-- Right Sidebar -->
@@ -446,7 +486,11 @@
     </div>
 
     <!-- Waveform Display -->
-    <div class="waveform-container glass-panel">
+    <div class="waveform-container glass-panel" id="waveform-container">
+      <div class="drop-indicator" id="drop-indicator">
+        Drop Audio File Here<br>
+        <span style="font-size: 14px; color: #999;">WAV, AIFF, MP3, FLAC, OGG</span>
+      </div>
       <div class="waveform-display">
         <canvas class="waveform-canvas" id="waveform" width="660" height="200"></canvas>
 
@@ -868,11 +912,17 @@
 
     // Bind slider control
     function bindSlider(element, sliderState, paramId) {
+      console.log(`[MuSam UI] Binding slider: ${paramId}`);
       const thumb = element.querySelector('.slider-thumb');
       const fill = element.querySelector('.slider-fill');
       const valueDisplay = element.querySelector('.slider-value');
       
-      if (!thumb || !fill || !valueDisplay) return;
+      if (!thumb || !fill || !valueDisplay) {
+        console.error(`[MuSam UI] Slider elements not found for ${paramId}:`, {thumb, fill, valueDisplay});
+        return;
+      }
+      
+      console.log(`[MuSam UI] Slider elements found for ${paramId}`);
 
       let isDragging = false;
       let startY = 0;
@@ -907,26 +957,72 @@
         valueDisplay.textContent = `${actualValue.toFixed(decimals)} ${range[2]}`;
       };
 
-      // Mouse events
+      // Mouse events - CRITICAL: Use capture phase and stop propagation
       thumb.addEventListener('mousedown', (e) => {
+        console.log(`[MuSam UI] Slider ${paramId} mousedown at y=${e.clientY}`);
         isDragging = true;
         startY = e.clientY;
         startValue = sliderState.getNormalisedValue();
+        console.log(`[MuSam UI] Starting drag: startValue=${startValue}`);
         e.preventDefault();
+        e.stopPropagation();
+        // Call sliderDragStarted for JUCE
+        try {
+          sliderState.sliderDragStarted();
+        } catch (err) {
+          console.error(`[MuSam UI] Error calling sliderDragStarted:`, err);
+        }
+      }, true); // Use capture phase
+      
+      // Also add mousedown to the entire slider element for better click handling
+      element.addEventListener('mousedown', (e) => {
+        // Only handle if clicking on track, not thumb
+        if (e.target === thumb || thumb.contains(e.target)) return;
+        console.log(`[MuSam UI] Slider ${paramId} track clicked`);
+        const rect = element.getBoundingClientRect();
+        const clickY = e.clientY - rect.top;
+        const normalizedValue = Math.max(0, Math.min(1, 1 - (clickY / rect.height)));
+        console.log(`[MuSam UI] Setting value to ${normalizedValue}`);
+        sliderState.setNormalisedValue(normalizedValue);
+        updateSlider(normalizedValue);
+        updateValue(normalizedValue);
+        e.preventDefault();
+        e.stopPropagation();
       });
 
-      document.addEventListener('mousemove', (e) => {
+      const handleMouseMove = (e) => {
         if (!isDragging) return;
         const delta = (startY - e.clientY) / element.offsetHeight;
         const newValue = Math.max(0, Math.min(1, startValue + delta));
-        sliderState.setNormalisedValue(newValue);
-        updateSlider(newValue);
-        updateValue(newValue);
-      });
+        console.log(`[MuSam UI] Slider ${paramId} dragging: delta=${delta.toFixed(3)}, newValue=${newValue.toFixed(3)}`);
+        try {
+          sliderState.setNormalisedValue(newValue);
+          updateSlider(newValue);
+          updateValue(newValue);
+        } catch (err) {
+          console.error(`[MuSam UI] Error updating slider ${paramId}:`, err);
+        }
+        e.preventDefault();
+      };
 
-      document.addEventListener('mouseup', () => {
-        isDragging = false;
-      });
+      const handleMouseUp = () => {
+        if (isDragging) {
+          console.log(`[MuSam UI] Slider ${paramId} drag ended`);
+          isDragging = false;
+          // Call sliderDragEnded for JUCE
+          try {
+            sliderState.sliderDragEnded();
+          } catch (err) {
+            console.error(`[MuSam UI] Error calling sliderDragEnded:`, err);
+          }
+        }
+      };
+
+      // Register on document with capture phase to catch all events
+      document.addEventListener('mousemove', handleMouseMove, true);
+      document.addEventListener('mouseup', handleMouseUp, true);
+      
+      // Note: Click handling moved to mousedown handler above for better responsiveness
 
       // Listen for external changes
       sliderState.valueChangedEvent.addListener((normalizedValue) => {
@@ -977,25 +1073,31 @@
         }
       };
 
-      // Mouse events
+      // Mouse events - CRITICAL: Use capture phase
       element.addEventListener('mousedown', (e) => {
         isDragging = true;
         startY = e.clientY;
         startValue = sliderState.getNormalisedValue();
         e.preventDefault();
-      });
+        e.stopPropagation();
+      }, true); // Use capture phase
 
-      document.addEventListener('mousemove', (e) => {
+      const handleMouseMove = (e) => {
         if (!isDragging) return;
         const delta = (startY - e.clientY) / 200; // Sensitivity
         const newValue = Math.max(0, Math.min(1, startValue + delta));
         sliderState.setNormalisedValue(newValue);
         updateKnob(newValue);
-      });
+        e.preventDefault();
+      };
 
-      document.addEventListener('mouseup', () => {
+      const handleMouseUp = () => {
         isDragging = false;
-      });
+      };
+
+      // Register on document with capture phase
+      document.addEventListener('mousemove', handleMouseMove, true);
+      document.addEventListener('mouseup', handleMouseUp, true);
 
       // Listen for external changes
       sliderState.valueChangedEvent.addListener((normalizedValue) => {
@@ -1009,18 +1111,36 @@
 
     // Bind global parameters
     function bindGlobalParameters() {
+      console.log('[MuSam UI] Binding global parameters...');
+      
       // Speed slider
       const speedSlider = document.getElementById('speed-slider');
+      console.log('[MuSam UI] Speed slider element:', speedSlider);
       if (speedSlider) {
         const speedState = getSliderState('speed');
-        if (speedState) bindSlider(speedSlider, speedState, 'speed');
+        console.log('[MuSam UI] Speed state:', speedState);
+        if (speedState) {
+          bindSlider(speedSlider, speedState, 'speed');
+        } else {
+          console.error('[MuSam UI] Failed to get speed state!');
+        }
+      } else {
+        console.error('[MuSam UI] Speed slider element not found!');
       }
 
       // Volume slider
       const volumeSlider = document.getElementById('volume-slider');
+      console.log('[MuSam UI] Volume slider element:', volumeSlider);
       if (volumeSlider) {
         const volumeState = getSliderState('volume');
-        if (volumeState) bindSlider(volumeSlider, volumeState, 'volume');
+        console.log('[MuSam UI] Volume state:', volumeState);
+        if (volumeState) {
+          bindSlider(volumeSlider, volumeState, 'volume');
+        } else {
+          console.error('[MuSam UI] Failed to get volume state!');
+        }
+      } else {
+        console.error('[MuSam UI] Volume slider element not found!');
       }
     }
 
@@ -1133,12 +1253,102 @@
       }
     }
 
+    // Drag & Drop visual feedback
+    const waveformContainer = document.getElementById('waveform-container');
+    const dropIndicator = document.getElementById('drop-indicator');
+
+    // Global handlers for JUCE backend communication
+    window.handleDragEnter = function() {
+      console.log('[MuSam UI] Drag entered');
+      waveformContainer.classList.add('drag-over');
+      dropIndicator.classList.add('visible');
+    };
+
+    window.handleDragExit = function() {
+      console.log('[MuSam UI] Drag exited');
+      waveformContainer.classList.remove('drag-over');
+      dropIndicator.classList.remove('visible');
+    };
+
+    window.handleFileLoaded = function(filename) {
+      console.log('[MuSam UI] File loaded:', filename);
+      waveformContainer.classList.remove('drag-over');
+      dropIndicator.classList.remove('visible');
+      // TODO: Update waveform display with loaded sample
+      drawWaveform();
+    };
+    
+    // Debug: Log that handlers are registered
+    console.log('[MuSam UI] Drag & Drop handlers registered');
+
+    // TEST: Add test button handler - SIMPLE VERSION
+    // Try multiple approaches to ensure button click works
+    function setupTestButton() {
+      const testButton = document.getElementById('test-button');
+      if (!testButton) {
+        console.error('[MuSam UI] Test button not found!');
+        return;
+      }
+      
+      console.log('[MuSam UI] Test button found!');
+      
+      // Try multiple event handlers
+      testButton.addEventListener('click', function(e) {
+        console.log('[MuSam UI] Button clicked via addEventListener!');
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Direct test - try to change parameter
+        try {
+          const speedState = getSliderState('speed');
+          console.log('[MuSam UI] Speed state:', speedState);
+          if (speedState) {
+            const currentValue = speedState.getNormalisedValue();
+            console.log('[MuSam UI] Current value:', currentValue);
+            const newValue = currentValue > 0.5 ? 0.3 : 0.7;
+            console.log('[MuSam UI] Setting to:', newValue);
+            speedState.setNormalisedValue(newValue);
+            console.log('[MuSam UI] Value set!');
+          } else {
+            console.error('[MuSam UI] Speed state is null!');
+          }
+        } catch (error) {
+          console.error('[MuSam UI] Error:', error);
+        }
+      });
+      
+      testButton.onclick = function(e) {
+        console.log('[MuSam UI] Button clicked via onclick!');
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      
+      console.log('[MuSam UI] Test button handlers attached');
+    }
+    
+    // Try to setup immediately and also on DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupTestButton);
+    } else {
+      setupTestButton();
+    }
+
     // Initialize all bindings when DOM is ready
-    document.addEventListener('DOMContentLoaded', () => {
+    // For ES6 modules, DOMContentLoaded may have already fired, so check readyState
+    function initializeBindings() {
+      console.log('[MuSam UI] Initializing parameter bindings...');
       bindGlobalParameters();
       bindSequencerParameters();
       updateRegionControls(1); // This will bind region 1 parameters
-    });
+      console.log('[MuSam UI] Parameter bindings initialized');
+    }
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeBindings);
+    } else {
+      // DOM already loaded, initialize immediately
+      initializeBindings();
+    }
   </script>
 </body>
 </html>

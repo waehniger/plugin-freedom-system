@@ -14,7 +14,40 @@
  * 3. Relays destroyed LAST (safe, nothing using them)
  */
 
-class MuSamAudioProcessorEditor : public juce::AudioProcessorEditor
+// Forward declaration
+class MuSamAudioProcessorEditor;
+
+//==============================================================================
+// Drag & Drop Overlay Component
+//==============================================================================
+// This invisible component sits on top of the WebView and intercepts drag events
+// while allowing mouse clicks to pass through to the WebView for UI interactions.
+class DragDropOverlay : public juce::Component,
+                         public juce::FileDragAndDropTarget
+{
+public:
+    DragDropOverlay(MuSamAudioProcessorEditor& editor);
+    
+    bool isInterestedInFileDrag(const juce::StringArray& files) override;
+    void fileDragEnter(const juce::StringArray& files, int x, int y) override;
+    void fileDragMove(const juce::StringArray& files, int x, int y) override;
+    void fileDragExit(const juce::StringArray& files) override;
+    void filesDropped(const juce::StringArray& files, int x, int y) override;
+    void paint(juce::Graphics& g) override;
+    bool hitTest(int x, int y) override;
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
+    void mouseMove(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    
+private:
+    MuSamAudioProcessorEditor& editorRef;
+};
+
+class MuSamAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                   public juce::FileDragAndDropTarget,
+                                   public juce::Timer,
+                                   public juce::AudioProcessorValueTreeState::Listener
 {
 public:
     /**
@@ -32,6 +65,22 @@ public:
     // AudioProcessorEditor overrides
     void paint(juce::Graphics&) override;
     void resized() override;
+    
+    // Timer override (for debug logging test)
+    void timerCallback() override;
+    
+    // Mouse event overrides (for debug logging test)
+    void mouseDown(const juce::MouseEvent& e) override;
+    
+    // AudioProcessorValueTreeState::Listener override (for parameter change logging)
+    void parameterChanged(const juce::String& parameterID, float newValue) override;
+
+    // FileDragAndDropTarget overrides
+    bool isInterestedInFileDrag(const juce::StringArray& files) override;
+    void fileDragEnter(const juce::StringArray& files, int x, int y) override;
+    void fileDragMove(const juce::StringArray& files, int x, int y) override;
+    void fileDragExit(const juce::StringArray& files) override;
+    void filesDropped(const juce::StringArray& files, int x, int y) override;
 
 private:
     /**
@@ -44,6 +93,12 @@ private:
     std::optional<juce::WebBrowserComponent::Resource> getResource(
         const juce::String& url
     );
+
+    /**
+     * Debug helper: Write log message to file
+     * @param message Log message to write
+     */
+    void writeDebugLog(const juce::String& message);
 
     // Reference to audio processor
     MuSamAudioProcessor& processorRef;
@@ -134,6 +189,11 @@ private:
     // 2️⃣ WEBVIEW SECOND (created after relays, destroyed before relays)
     // ------------------------------------------------------------------------
     std::unique_ptr<juce::WebBrowserComponent> webView;
+    
+    // ------------------------------------------------------------------------
+    // DRAG & DROP OVERLAY (invisible component that intercepts drag events)
+    // ------------------------------------------------------------------------
+    std::unique_ptr<DragDropOverlay> dragDropOverlay;
 
     // ------------------------------------------------------------------------
     // 3️⃣ PARAMETER ATTACHMENTS LAST (created last, destroyed first)
