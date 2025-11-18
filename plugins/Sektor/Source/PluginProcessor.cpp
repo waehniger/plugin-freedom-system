@@ -7,13 +7,14 @@
 
 SektorAudioProcessor::Voice::Voice()
     : grainPhase(0.0f)
-    , grainTrigger(0.0f)
+    , samplesUntilNextGrain(0)
     , playing(false)
     , midiNoteNumber(0)
     , noteVelocity(0.0f)
     , currentSampleRate(44100.0)
     , maxGrainSamples(0)
 {
+    activeGrains.resize(MAX_ACTIVE_GRAINS);
 }
 
 void SektorAudioProcessor::Voice::prepare(double sampleRate, int maxGrainSize)
@@ -66,7 +67,13 @@ void SektorAudioProcessor::Voice::startNote(int midiNote, float velocity)
     noteVelocity = velocity;
     playing = true;
     grainPhase = 0.0f;
-    grainTrigger = 0.0f;
+    samplesUntilNextGrain = 0;  // Trigger first grain immediately
+
+    // Clear all active grains
+    for (auto& grain : activeGrains)
+    {
+        grain.isActive = false;
+    }
 }
 
 void SektorAudioProcessor::Voice::stopNote()
@@ -74,8 +81,72 @@ void SektorAudioProcessor::Voice::stopNote()
     playing = false;
 }
 
+void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing)
+{
+    // Find free grain slot (or kill oldest)
+    ActiveGrain* targetGrain = nullptr;
+
+    // First, try to find an inactive grain
+    for (auto& grain : activeGrains)
+    {
+        if (!grain.isActive)
+        {
+            targetGrain = &grain;
+            break;
+        }
+    }
+
+    // If no free slots, kill the oldest (first active grain in list)
+    if (targetGrain == nullptr)
+    {
+        targetGrain = &activeGrains[0];
+    }
+
+    // Initialize new grain
+    targetGrain->readPosition = 0.0f;
+    targetGrain->samplesRemaining = grainSamples;
+    targetGrain->grainStartPhase = grainPhase;
+    targetGrain->isActive = true;
+
+    // Advance grain phase for next grain (spacing controls advancement)
+    grainPhase += static_cast<float>(grainSamples) * spacing;
+
+    // Wrap grain phase at sample buffer length
+    int sampleLength = sampleBuffer.getNumSamples();
+    while (grainPhase >= static_cast<float>(sampleLength))
+    {
+        grainPhase -= static_cast<float>(sampleLength);
+    }
+}
+
+float SektorAudioProcessor::Voice::readFractionalSample(float position)
+{
+    int sampleLength = sampleBuffer.getNumSamples();
+    const float* sampleData = sampleBuffer.getReadPointer(0);
+
+    // Wrap position
+    while (position >= static_cast<float>(sampleLength))
+    {
+        position -= static_cast<float>(sampleLength);
+    }
+    while (position < 0.0f)
+    {
+        position += static_cast<float>(sampleLength);
+    }
+
+    // Linear interpolation
+    int index1 = static_cast<int>(position);
+    int index2 = (index1 + 1) % sampleLength;
+    float frac = position - static_cast<float>(index1);
+
+    float sample1 = sampleData[index1];
+    float sample2 = sampleData[index2];
+
+    return sample1 + frac * (sample2 - sample1);
+}
+
 void SektorAudioProcessor::Voice::processBlock(juce::AudioBuffer<float>& output, int numSamples,
-                                                float grainSizeMs, float pitchShiftSemitones)
+                                                float grainSizeMs, float density, float pitchShiftSemitones, float spacing)
 {
     if (!playing || sampleBuffer.getNumSamples() == 0)
         return;
@@ -93,45 +164,59 @@ void SektorAudioProcessor::Voice::processBlock(juce::AudioBuffer<float>& output,
     // Calculate pitch shift rate (semitones to playback rate)
     float pitchRate = std::pow(2.0f, pitchShiftSemitones / 12.0f);
 
-    // Get sample buffer info
-    int sampleLength = sampleBuffer.getNumSamples();
-    const float* sampleData = sampleBuffer.getReadPointer(0);
+    // Calculate grain trigger interval from density (grains per second)
+    int grainInterval = static_cast<int>(currentSampleRate / density);
+    grainInterval = juce::jmax(1, grainInterval);  // Prevent division by zero
 
     // Process each output sample
-    for (int i = 0; i < numSamples; ++i)
+    for (int sample = 0; sample < numSamples; ++sample)
     {
-        // Check if we need to trigger new grain (continuous retriggering)
-        if (grainTrigger <= 0.0f)
+        // Check if we need to trigger new grain
+        if (samplesUntilNextGrain <= 0)
         {
-            grainPhase = 0.0f;  // Reset grain to start
-            grainTrigger = static_cast<float>(grainSamples);  // Next grain triggers after current grain completes
+            generateGrain(grainSamples, spacing);
+            samplesUntilNextGrain = grainInterval;
         }
 
-        // Generate current grain sample
+        // Mix all active grains
         float outputSample = 0.0f;
 
-        if (grainPhase < static_cast<float>(grainSamples))
+        for (auto& grain : activeGrains)
         {
-            // Read from sample buffer with pitch shift (simple playback rate, no interpolation yet)
-            int sampleIndex = static_cast<int>(grainPhase * pitchRate) % sampleLength;
-            float sample = sampleData[sampleIndex];
+            if (!grain.isActive)
+                continue;
+
+            // Calculate source position with pitch shift
+            float sourcePosition = grain.grainStartPhase + (grain.readPosition * pitchRate);
+
+            // Read sample with linear interpolation
+            float sampleValue = readFractionalSample(sourcePosition);
 
             // Apply Hann window
-            int windowIndex = static_cast<int>(grainPhase);
+            int windowIndex = static_cast<int>(grain.readPosition);
             if (windowIndex >= 0 && windowIndex < grainSamples)
             {
                 float windowValue = hannWindow[windowIndex];
-                outputSample = sample * windowValue * noteVelocity;
+                outputSample += sampleValue * windowValue;
             }
 
-            grainPhase += 1.0f;
+            // Advance grain read position
+            grain.readPosition += 1.0f;
+            grain.samplesRemaining--;
+
+            // Deactivate grain when finished
+            if (grain.samplesRemaining <= 0)
+            {
+                grain.isActive = false;
+            }
         }
 
-        // Write to output buffer (mono to stereo)
-        output.addSample(0, i, outputSample);  // Left channel
-        output.addSample(1, i, outputSample);  // Right channel
+        // Apply velocity and write to output buffer (mono to stereo)
+        outputSample *= noteVelocity;
+        output.addSample(0, sample, outputSample);  // Left channel
+        output.addSample(1, sample, outputSample);  // Right channel
 
-        grainTrigger -= 1.0f;
+        samplesUntilNextGrain--;
     }
 }
 
@@ -255,15 +340,19 @@ void SektorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 
     // Read parameters (atomic, real-time safe)
     auto* grainSizeParam = parameters.getRawParameterValue("GRAIN_SIZE");
+    auto* densityParam = parameters.getRawParameterValue("DENSITY");
     auto* pitchShiftParam = parameters.getRawParameterValue("PITCH_SHIFT");
+    auto* spacingParam = parameters.getRawParameterValue("SPACING");
 
     float grainSizeMs = grainSizeParam->load();
+    float density = densityParam->load();
     float pitchShiftSemitones = pitchShiftParam->load();
+    float spacing = spacingParam->load();
 
     // Process voice if playing
     if (monoVoice.isPlaying())
     {
-        monoVoice.processBlock(buffer, buffer.getNumSamples(), grainSizeMs, pitchShiftSemitones);
+        monoVoice.processBlock(buffer, buffer.getNumSamples(), grainSizeMs, density, pitchShiftSemitones, spacing);
     }
 }
 

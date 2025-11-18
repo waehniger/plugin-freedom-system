@@ -38,7 +38,18 @@ private:
     // Parameter layout creation
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    // Voice class for single grain playback
+    // Active grain structure for overlap-add synthesis
+    struct ActiveGrain
+    {
+        float readPosition;     // Current fractional read position in grain
+        int samplesRemaining;   // Samples until grain finishes
+        float grainStartPhase;  // Sample position in source where grain started
+        bool isActive;
+
+        ActiveGrain() : readPosition(0.0f), samplesRemaining(0), grainStartPhase(0.0f), isActive(false) {}
+    };
+
+    // Voice class for overlapping grain playback
     class Voice
     {
     public:
@@ -48,19 +59,24 @@ private:
         void startNote(int midiNote, float velocity);
         void stopNote();
         void processBlock(juce::AudioBuffer<float>& output, int numSamples,
-                         float grainSizeMs, float pitchShiftSemitones);
+                         float grainSizeMs, float density, float pitchShiftSemitones, float spacing);
 
         bool isPlaying() const { return playing; }
 
     private:
         void generateTestSample(double sampleRate);
         void generateHannWindow(int grainSize);
+        void generateGrain(int grainSamples, float spacing);
+        float readFractionalSample(float position);
 
         juce::AudioBuffer<float> sampleBuffer;  // Test sample (sine wave)
         std::vector<float> hannWindow;          // Pre-calculated Hann window
 
-        float grainPhase;      // Current read position in grain (0 to grainSamples-1)
-        float grainTrigger;    // Sample counter until next grain trigger
+        static constexpr int MAX_ACTIVE_GRAINS = 8;  // CPU protection
+        std::vector<ActiveGrain> activeGrains;
+
+        float grainPhase;          // Current sample position in source for grain extraction
+        int samplesUntilNextGrain; // Sample counter until next grain trigger
         bool playing;
         int midiNoteNumber;
         float noteVelocity;
