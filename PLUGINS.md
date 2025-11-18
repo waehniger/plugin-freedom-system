@@ -41,6 +41,7 @@
 | Words | 💡 Ideated | - | Utility (MIDI Sequencer) | 2025-11-13 |
 | PadForge | 💡 Ideated | - | Synth (Instrument) | 2025-11-14 |
 | MuSam | 📦 Installed | 1.0.0 | Sampler/Effect | 2025-11-17 |
+| Sektor | 💡 Ideated | - | Instrument (Granular Sampler) | 2025-11-18 |
 
 **For detailed plugin information (lifecycle timeline, known issues, parameters, etc.), see:**
 `plugins/[PluginName]/NOTES.md`
