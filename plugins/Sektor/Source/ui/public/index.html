@@ -318,15 +318,16 @@
                 </div>
             </div>
 
-            <!-- Second Row: Info (sample loading and polyphony for Phase 3.2) -->
+            <!-- Second Row: Polyphony toggle and status info -->
             <div class="info-row">
+                <button class="toggle-button active" id="polyphonyToggle">Poly</button>
                 <div class="info-item">
-                    <span>Phase 3.1:</span>
-                    <span class="info-value">Layout & Basic Controls</span>
+                    <span>Sample:</span>
+                    <span class="info-value" id="sampleInfo">No sample loaded</span>
                 </div>
                 <div class="info-item">
                     <span>Status:</span>
-                    <span class="info-value" id="status">Sliders bound to APVTS</span>
+                    <span class="info-value" id="status">Ready</span>
                 </div>
             </div>
         </div>
@@ -334,9 +335,9 @@
 
     <!-- JavaScript Module -->
     <script type="module">
-        import { getSliderState } from './js/juce/index.js';
+        import { getSliderState, getToggleState } from './js/juce/index.js';
 
-        console.log('[Sektor Phase 3.1] Initializing parameter bindings...');
+        console.log('[Sektor Phase 3.2] Initializing parameter bindings...');
 
         // Parameter bindings (4 primary granular parameters)
         const parameters = [
@@ -417,7 +418,7 @@
                 valueDisplay.textContent = formatValue(denormalize(normalized));
             });
 
-            // Update slider when JUCE changes (automation, preset load)
+            // Update slider when JUCE changes (automation, preset load - Pattern #15)
             sliderState.valueChangedEvent.addListener(() => {
                 const normalized = sliderState.getNormalisedValue();
                 slider.value = normalized;
@@ -425,7 +426,104 @@
             });
         });
 
-        console.log('[Sektor Phase 3.1] Initialization complete');
+        // Polyphony mode toggle (Pattern #19: Use getToggleState for boolean parameters)
+        const polyphonyToggle = document.getElementById('polyphonyToggle');
+        const polyphonyState = getToggleState('POLYPHONY_MODE');
+
+        if (polyphonyToggle && polyphonyState) {
+            // Initialize UI with current state
+            const initialState = polyphonyState.getValue();
+            polyphonyToggle.textContent = initialState ? 'Poly' : 'Mono';
+            polyphonyToggle.classList.toggle('active', initialState);
+
+            // Toggle on click
+            polyphonyToggle.addEventListener('click', () => {
+                const currentValue = polyphonyState.getValue();
+                polyphonyState.setValue(!currentValue);
+                polyphonyToggle.textContent = !currentValue ? 'Poly' : 'Mono';
+                polyphonyToggle.classList.toggle('active', !currentValue);
+            });
+
+            // Update when JUCE changes (Pattern #15: no callback parameters)
+            polyphonyState.valueChangedEvent.addListener(() => {
+                const value = polyphonyState.getValue();
+                polyphonyToggle.textContent = value ? 'Poly' : 'Mono';
+                polyphonyToggle.classList.toggle('active', value);
+            });
+
+            console.log('[Sektor] Bound POLYPHONY_MODE:', initialState ? 'Poly' : 'Mono');
+        } else {
+            console.error('[Sektor] Failed to bind polyphony toggle');
+        }
+
+        // Drag-and-drop zone
+        const dropZone = document.getElementById('dropZone');
+        const browseButton = document.getElementById('browseButton');
+
+        if (dropZone) {
+            // Visual feedback for drag-and-drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#ff8c00';
+                dropZone.style.background = '#333';
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.style.borderColor = '#666666';
+                dropZone.style.background = '#2a2a2a';
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#666666';
+                dropZone.style.background = '#2a2a2a';
+                console.log('[Sektor] Files dropped (handled by C++ FileDragAndDropTarget)');
+            });
+
+            // For Phase 3.2, file browser button disabled (drag-and-drop only)
+            // Phase 3.3 will add native file browser integration
+            if (browseButton) {
+                browseButton.addEventListener('click', () => {
+                    console.log('[Sektor] File browser not yet implemented - use drag-and-drop');
+                    updateStatus('Use drag-and-drop to load samples');
+                });
+            }
+
+            dropZone.addEventListener('click', () => {
+                console.log('[Sektor] File browser not yet implemented - use drag-and-drop');
+                updateStatus('Use drag-and-drop to load samples');
+            });
+        }
+
+        // Status update function (called from C++)
+        window.updateStatus = (message) => {
+            const statusElement = document.getElementById('status');
+            if (statusElement) {
+                statusElement.textContent = message;
+                console.log('[Sektor] Status:', message);
+            }
+
+            // Update sample info if filename detected
+            if (message.includes('Sample loaded:')) {
+                const filename = message.replace('Sample loaded: ', '');
+                const sampleInfo = document.getElementById('sampleInfo');
+                if (sampleInfo) {
+                    sampleInfo.textContent = filename;
+                }
+            } else if (message.includes('Loading')) {
+                const sampleInfo = document.getElementById('sampleInfo');
+                if (sampleInfo) {
+                    sampleInfo.textContent = 'Loading...';
+                }
+            } else if (message.includes('Error')) {
+                const sampleInfo = document.getElementById('sampleInfo');
+                if (sampleInfo) {
+                    sampleInfo.textContent = 'Load failed';
+                }
+            }
+        };
+
+        console.log('[Sektor Phase 3.2] Initialization complete');
     </script>
 </body>
 </html>

@@ -9,6 +9,7 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
     densityRelay = std::make_unique<juce::WebSliderRelay>("DENSITY");
     pitchShiftRelay = std::make_unique<juce::WebSliderRelay>("PITCH_SHIFT");
     spacingRelay = std::make_unique<juce::WebSliderRelay>("SPACING");
+    polyphonyModeRelay = std::make_unique<juce::WebToggleButtonRelay>("POLYPHONY_MODE");
 
     // 2. Create WebView with relay options
     webView = std::make_unique<juce::WebBrowserComponent>(
@@ -19,6 +20,7 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
             .withOptionsFrom(*densityRelay)
             .withOptionsFrom(*pitchShiftRelay)
             .withOptionsFrom(*spacingRelay)
+            .withOptionsFrom(*polyphonyModeRelay)
     );
 
     // 3. Create attachments LAST (Pattern #12: 3 parameters required)
@@ -33,6 +35,9 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
 
     spacingAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
         *processorRef.parameters.getParameter("SPACING"), *spacingRelay, nullptr);
+
+    polyphonyModeAttachment = std::make_unique<juce::WebToggleButtonParameterAttachment>(
+        *processorRef.parameters.getParameter("POLYPHONY_MODE"), *polyphonyModeRelay, nullptr);
 
     // Add WebView to editor
     addAndMakeVisible(*webView);
@@ -99,4 +104,73 @@ SektorAudioProcessorEditor::getResource(const juce::String& url)
     // Resource not found
     juce::Logger::writeToLog("[Sektor] Resource not found: " + url);
     return std::nullopt;
+}
+
+// FileDragAndDropTarget implementation
+bool SektorAudioProcessorEditor::isInterestedInFileDrag(const juce::StringArray& files)
+{
+    for (const auto& file : files) {
+        juce::File f(file);
+        if (f.hasFileExtension("wav;aif;aiff;mp3;flac"))
+            return true;
+    }
+    return false;
+}
+
+void SektorAudioProcessorEditor::filesDropped(const juce::StringArray& files, int x, int y)
+{
+    juce::ignoreUnused(x, y);
+
+    if (!files.isEmpty()) {
+        juce::File droppedFile(files[0]);
+        loadSampleAsync(droppedFile);
+    }
+}
+
+// Sample loading implementation
+void SektorAudioProcessorEditor::loadSampleAsync(const juce::File& file)
+{
+    // Show loading indicator
+    updateUIStatus("Loading sample...");
+
+    // Launch background thread for file I/O (Pattern #5: Threading - UI ↔ Audio Thread)
+    std::thread([this, file]() {
+        juce::AudioFormatManager formatManager;
+        formatManager.registerBasicFormats();
+
+        auto reader = std::unique_ptr<juce::AudioFormatReader>(formatManager.createReaderFor(file));
+        if (reader == nullptr) {
+            juce::MessageManager::callAsync([this]() {
+                updateUIStatus("Error: Invalid audio file");
+            });
+            return;
+        }
+
+        // Load sample into temporary buffer
+        auto tempBuffer = std::make_unique<juce::AudioBuffer<float>>(
+            static_cast<int>(reader->numChannels),
+            static_cast<int>(reader->lengthInSamples)
+        );
+
+        reader->read(tempBuffer.get(), 0, static_cast<int>(reader->lengthInSamples), 0, true, true);
+
+        // Atomic swap in processor (thread-safe)
+        processorRef.setSampleBuffer(std::move(tempBuffer));
+
+        // Update UI on message thread
+        juce::MessageManager::callAsync([this, filename = file.getFileName()]() {
+            updateUIStatus("Sample loaded: " + filename);
+        });
+
+    }).detach();
+}
+
+void SektorAudioProcessorEditor::updateUIStatus(const juce::String& message)
+{
+    // Send status update to JavaScript via evaluateJavascript
+    if (webView) {
+        juce::String escapedMessage = message.replace("'", "\\'");
+        juce::String jsCode = "if (window.updateStatus) { window.updateStatus('" + escapedMessage + "'); }";
+        webView->evaluateJavascript(jsCode);
+    }
 }

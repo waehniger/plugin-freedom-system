@@ -619,6 +619,18 @@ void SektorAudioProcessor::setStateInformation(const void* data, int sizeInBytes
         parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
+// Sample buffer management (thread-safe)
+void SektorAudioProcessor::setSampleBuffer(std::unique_ptr<juce::AudioBuffer<float>> newBuffer)
+{
+    // Atomic swap - audio thread will see new buffer on next processBlock
+    auto oldBuffer = currentSampleBuffer.exchange(newBuffer.release());
+
+    // Delete old buffer on message thread (safe disposal)
+    juce::MessageManager::callAsync([oldBuffer]() {
+        delete oldBuffer;
+    });
+}
+
 // Factory function
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {

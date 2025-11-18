@@ -34,9 +34,15 @@ public:
 
     juce::AudioProcessorValueTreeState parameters;
 
+    // Sample buffer management (thread-safe)
+    void setSampleBuffer(std::unique_ptr<juce::AudioBuffer<float>> newBuffer);
+
 private:
     // Parameter layout creation
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    // Sample buffer pointer (atomic for thread safety)
+    std::atomic<juce::AudioBuffer<float>*> currentSampleBuffer { nullptr };
 
     // Active grain structure for overlap-add synthesis
     struct ActiveGrain
