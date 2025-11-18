@@ -320,7 +320,7 @@ void SektorAudioProcessor::VoiceManager::prepare(double sampleRate, int maxGrain
     }
 }
 
-Voice* SektorAudioProcessor::VoiceManager::allocateVoice(int noteNumber, bool monoMode)
+SektorAudioProcessor::Voice* SektorAudioProcessor::VoiceManager::allocateVoice(int noteNumber, bool monoMode)
 {
     if (monoMode)
     {
@@ -340,7 +340,7 @@ Voice* SektorAudioProcessor::VoiceManager::allocateVoice(int noteNumber, bool mo
     }
 
     // No free voices - steal oldest voice
-    Voice* oldestVoice = &voices[0];
+    SektorAudioProcessor::Voice* oldestVoice = &voices[0];
     int oldestAge = voices[0].getAge();
 
     for (auto& voice : voices)
@@ -358,7 +358,7 @@ Voice* SektorAudioProcessor::VoiceManager::allocateVoice(int noteNumber, bool mo
     return oldestVoice;
 }
 
-Voice* SektorAudioProcessor::VoiceManager::findVoiceForNote(int noteNumber)
+SektorAudioProcessor::Voice* SektorAudioProcessor::VoiceManager::findVoiceForNote(int noteNumber)
 {
     // Find voice playing this specific MIDI note
     for (auto& voice : voices)
@@ -588,7 +588,7 @@ void SektorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
             int noteNumber = message.getNoteNumber();
             voiceManager.handleNoteOff(noteNumber, !polyMode);
         }
-        else if (message.isAllNotesOff() || message.isController() && message.getControllerNumber() == 123)
+        else if (message.isAllNotesOff() || (message.isController() && message.getControllerNumber() == 123))
         {
             // CC 123 = all notes off
             voiceManager.handleAllNotesOff();

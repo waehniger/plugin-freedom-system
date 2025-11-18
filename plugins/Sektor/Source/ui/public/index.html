@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sektor - Granular Sampler</title>
+    <style>
+        /* ====================================================================
+           CRITICAL CSS CONSTRAINTS
+           ==================================================================== */
+
+        /* CRITICAL: Use 100%, NOT 100vh (JUCE WebView constraint) */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* ====================================================================
+           NATIVE APPLICATION FEEL
+           ==================================================================== */
+
+        body {
+            /* Disable text selection */
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+
+            /* Disable touch callouts */
+            -webkit-touch-callout: none;
+
+            /* Default cursor */
+            cursor: default;
+
+            /* Disable tap highlight */
+            -webkit-tap-highlight-color: transparent;
+
+            /* Plugin styling */
+            background: #2a2a2a;
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        /* ====================================================================
+           LAYOUT STRUCTURE
+           ==================================================================== */
+
+        .plugin-container {
+            width: 900px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header - 60px */
+        .header {
+            height: 60px;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            gap: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .drop-zone {
+            flex: 1;
+            height: 40px;
+            background: #2a2a2a;
+            border: 2px dashed #666666;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #999999;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .drop-zone:hover {
+            border-color: #ff8c00;
+            color: #ff8c00;
+            background: #333;
+        }
+
+        .browse-button {
+            padding: 10px 20px;
+            background: #404040;
+            border: none;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .browse-button:hover {
+            background: #505050;
+        }
+
+        .plugin-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ff8c00;
+            letter-spacing: 0.05em;
+            margin-left: auto;
+        }
+
+        /* Waveform Display - 360px */
+        .waveform-container {
+            height: 360px;
+            background: #2a2a2a;
+            padding: 30px;
+            position: relative;
+        }
+
+        .waveform-canvas {
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            border-radius: 4px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666666;
+            font-size: 14px;
+        }
+
+        /* Controls - 180px */
+        .controls-container {
+            height: 180px;
+            background: #2a2a2a;
+            padding: 20px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .control {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #999999;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            flex: 1;
+            height: 6px;
+            background: #404040;
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #ff8c00;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #ffa033;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #ff8c00;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        input[type="range"]::-moz-range-thumb:hover {
+            background: #ffa033;
+        }
+
+        .slider-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            min-width: 70px;
+            text-align: right;
+        }
+
+        .info-row {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+            padding-top: 5px;
+            border-top: 1px solid #333;
+        }
+
+        .toggle-button {
+            padding: 8px 16px;
+            background: #404040;
+            border: none;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .toggle-button.active {
+            background: #ff8c00;
+            color: #1a1a1a;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: #999999;
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="plugin-container">
+        <!-- Header Section -->
+        <div class="header">
+            <div class="drop-zone" id="dropZone">
+                Drop Sample Here or Click to Browse
+            </div>
+            <button class="browse-button" id="browseButton">Browse...</button>
+            <div class="plugin-title">SEKTOR</div>
+        </div>
+
+        <!-- Waveform Display Section (Placeholder for Phase 3.3) -->
+        <div class="waveform-container">
+            <div class="waveform-canvas" id="waveformCanvas">
+                Waveform Display (Phase 3.3)
+            </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="controls-container">
+            <!-- First Row: Grain Size, Density, Pitch Shift, Spacing -->
+            <div class="controls-row">
+                <div class="control">
+                    <div class="control-label">Grain Size</div>
+                    <div class="slider-container">
+                        <input type="range" id="GRAIN_SIZE" min="0" max="1" step="0.001" value="0.184">
+                        <div class="slider-value" id="grainSizeValue">100.0 ms</div>
+                    </div>
+                </div>
+
+                <div class="control">
+                    <div class="control-label">Density</div>
+                    <div class="slider-container">
+                        <input type="range" id="DENSITY" min="0" max="1" step="0.001" value="0.246">
+                        <div class="slider-value" id="densityValue">50.0 g/s</div>
+                    </div>
+                </div>
+
+                <div class="control">
+                    <div class="control-label">Pitch Shift</div>
+                    <div class="slider-container">
+                        <input type="range" id="PITCH_SHIFT" min="0" max="1" step="0.001" value="0.5">
+                        <div class="slider-value" id="pitchShiftValue">0.0 st</div>
+                    </div>
+                </div>
+
+                <div class="control">
+                    <div class="control-label">Spacing</div>
+                    <div class="slider-container">
+                        <input type="range" id="SPACING" min="0" max="1" step="0.001" value="0.474">
+                        <div class="slider-value" id="spacingValue">1.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Second Row: Info (sample loading and polyphony for Phase 3.2) -->
+            <div class="info-row">
+                <div class="info-item">
+                    <span>Phase 3.1:</span>
+                    <span class="info-value">Layout & Basic Controls</span>
+                </div>
+                <div class="info-item">
+                    <span>Status:</span>
+                    <span class="info-value" id="status">Sliders bound to APVTS</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Module -->
+    <script type="module">
+        import { getSliderState } from './js/juce/index.js';
+
+        console.log('[Sektor Phase 3.1] Initializing parameter bindings...');
+
+        // Parameter bindings (4 primary granular parameters)
+        const parameters = [
+            {
+                id: 'GRAIN_SIZE',
+                min: 10.0,
+                max: 500.0,
+                unit: 'ms',
+                decimals: 1,
+                valueElement: 'grainSizeValue'
+            },
+            {
+                id: 'DENSITY',
+                min: 1.0,
+                max: 200.0,
+                unit: 'g/s',
+                decimals: 1,
+                valueElement: 'densityValue'
+            },
+            {
+                id: 'PITCH_SHIFT',
+                min: -12.0,
+                max: 12.0,
+                unit: 'st',
+                decimals: 1,
+                valueElement: 'pitchShiftValue'
+            },
+            {
+                id: 'SPACING',
+                min: 0.1,
+                max: 2.0,
+                unit: '',
+                decimals: 2,
+                valueElement: 'spacingValue'
+            }
+        ];
+
+        // Bind each parameter
+        parameters.forEach(param => {
+            const slider = document.getElementById(param.id);
+            const valueDisplay = document.getElementById(param.valueElement);
+
+            if (!slider || !valueDisplay) {
+                console.error(`[Sektor] Missing DOM element for ${param.id}`);
+                return;
+            }
+
+            // Get slider state from JUCE
+            const sliderState = getSliderState(param.id);
+
+            if (!sliderState) {
+                console.error(`[Sektor] Failed to get slider state for ${param.id}`);
+                return;
+            }
+
+            // Helper: denormalize value
+            const denormalize = (normalized) => {
+                return param.min + normalized * (param.max - param.min);
+            };
+
+            // Helper: format value for display
+            const formatValue = (value) => {
+                const formatted = value.toFixed(param.decimals);
+                return param.unit ? `${formatted} ${param.unit}` : formatted;
+            };
+
+            // Initialize slider with current value from JUCE
+            const initialValue = sliderState.getNormalisedValue();
+            slider.value = initialValue;
+            valueDisplay.textContent = formatValue(denormalize(initialValue));
+
+            console.log(`[Sektor] Bound ${param.id}: ${denormalize(initialValue).toFixed(param.decimals)} ${param.unit}`);
+
+            // Update JUCE when slider changes
+            slider.addEventListener('input', (e) => {
+                const normalized = parseFloat(e.target.value);
+                sliderState.setNormalisedValue(normalized);
+                valueDisplay.textContent = formatValue(denormalize(normalized));
+            });
+
+            // Update slider when JUCE changes (automation, preset load)
+            sliderState.valueChangedEvent.addListener(() => {
+                const normalized = sliderState.getNormalisedValue();
+                slider.value = normalized;
+                valueDisplay.textContent = formatValue(denormalize(normalized));
+            });
+        });
+
+        console.log('[Sektor Phase 3.1] Initialization complete');
+    </script>
+</body>
+</html>
