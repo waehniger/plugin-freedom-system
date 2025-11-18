@@ -1,0 +1,92 @@
+# ==============================================================================
+# Sektor v1 - WebView UI Configuration
+# ==============================================================================
+#
+# This file contains CMake configuration for WebView-based UI integration.
+# Append this to the main plugin CMakeLists.txt during Stage 3 (GUI).
+#
+# Integration: Add `include(v1-CMakeLists.txt)` at the end of CMakeLists.txt
+#
+# ==============================================================================
+
+# ==============================================================================
+# CRITICAL: WebView UI Resources
+# ==============================================================================
+#
+# Embeds HTML, CSS, JavaScript files as binary data in the plugin.
+# Files are accessible via getResource() in PluginEditor.cpp.
+#
+# File path → BinaryData symbol conversion:
+# - Source/ui/public/index.html       → BinaryData::index_html
+# - Source/ui/public/js/juce/index.js → BinaryData::index_js
+#
+# Pattern: CMake converts "/" to "_" and "." to "_"
+#
+juce_add_binary_data(Sektor_UIResources
+    SOURCES
+        Source/ui/public/index.html
+        Source/ui/public/js/juce/index.js
+        Source/ui/public/js/juce/check_native_interop.js
+        # Add additional resources here (CSS, images, fonts)
+)
+
+# ==============================================================================
+# Link UI Resources to Plugin
+# ==============================================================================
+#
+# Links binary data to plugin target.
+# Also adds juce::juce_gui_extra (REQUIRED for WebBrowserComponent).
+#
+target_link_libraries(Sektor
+    PRIVATE
+        Sektor_UIResources
+        juce::juce_gui_extra  # REQUIRED for WebView
+)
+
+# ==============================================================================
+# WebView Compile Definitions
+# ==============================================================================
+#
+# JUCE_WEB_BROWSER=1 - Enables WebBrowserComponent (REQUIRED)
+# JUCE_USE_CURL=0    - Disables CURL (not needed for local HTML)
+#
+target_compile_definitions(Sektor
+    PUBLIC
+        JUCE_WEB_BROWSER=1
+        JUCE_USE_CURL=0
+)
+
+# ==============================================================================
+# CRITICAL: VST3 WebView Support
+# ==============================================================================
+#
+# NEEDS_WEB_BROWSER must be added to juce_add_plugin() in main CMakeLists.txt.
+# Without this flag, VST3 builds but won't load in DAWs.
+#
+# Example modification to main CMakeLists.txt:
+#
+# juce_add_plugin(Sektor
+#     COMPANY_NAME "YourCompany"
+#     PLUGIN_MANUFACTURER_CODE Manu
+#     PLUGIN_CODE Sekt
+#     FORMATS VST3 AU Standalone
+#     PRODUCT_NAME "Sektor"
+#     IS_SYNTH TRUE                # REQUIRED for instruments
+#     NEEDS_MIDI_INPUT TRUE        # REQUIRED for MIDI input
+#     NEEDS_WEB_BROWSER TRUE       # REQUIRED for WebView (CRITICAL!)
+# )
+#
+# ==============================================================================
+
+# ==============================================================================
+# Notes
+# ==============================================================================
+#
+# 1. Copy v1-ui.html to Source/ui/public/index.html before building
+# 2. Copy JUCE frontend library to Source/ui/public/js/juce/index.js
+# 3. Copy check_native_interop.js to Source/ui/public/js/juce/
+# 4. Verify NEEDS_WEB_BROWSER=TRUE in juce_add_plugin() (main CMakeLists.txt)
+# 5. Build and install to system folders (not build directory)
+# 6. Restart DAW after installation
+#
+# ==============================================================================

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sektor - Granular Sampler</title>
+    <style>
+        /* ====================================================================
+           CRITICAL CSS CONSTRAINTS
+           ==================================================================== */
+
+        /* CRITICAL: Use 100%, NOT 100vh (JUCE WebView constraint) */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* ====================================================================
+           NATIVE APPLICATION FEEL
+           ==================================================================== */
+
+        body {
+            /* Disable text selection */
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+
+            /* Disable touch callouts */
+            -webkit-touch-callout: none;
+
+            /* Default cursor */
+            cursor: default;
+
+            /* Disable tap highlight */
+            -webkit-tap-highlight-color: transparent;
+
+            /* Plugin styling */
+            background: #2a2a2a;
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        /* ====================================================================
+           LAYOUT STRUCTURE
+           ==================================================================== */
+
+        .plugin-container {
+            width: 900px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header - 60px */
+        .header {
+            height: 60px;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            gap: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .drop-zone {
+            flex: 1;
+            height: 40px;
+            background: #2a2a2a;
+            border: 2px dashed #666666;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #999999;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .drop-zone:hover {
+            border-color: #ff8c00;
+            color: #ff8c00;
+            background: #333;
+        }
+
+        .drop-zone.dragging {
+            border-color: #ff8c00;
+            background: #3a2a1a;
+            color: #ff8c00;
+        }
+
+        .browse-button {
+            padding: 10px 20px;
+            background: #404040;
+            border: none;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .browse-button:hover {
+            background: #505050;
+        }
+
+        .plugin-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ff8c00;
+            letter-spacing: 0.05em;
+            margin-left: auto;
+        }
+
+        /* Waveform Display - 360px */
+        .waveform-container {
+            height: 360px;
+            background: #2a2a2a;
+            padding: 30px;
+            position: relative;
+        }
+
+        .waveform-canvas {
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            border-radius: 4px;
+            position: relative;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .region-handle {
+            position: absolute;
+            width: 10px;
+            height: 100%;
+            background: #ff8c00;
+            cursor: ew-resize;
+            top: 0;
+            opacity: 0.8;
+            transition: opacity 0.15s ease;
+        }
+
+        .region-handle:hover {
+            opacity: 1.0;
+        }
+
+        .region-handle.start {
+            left: 0;
+            border-radius: 4px 0 0 4px;
+        }
+
+        .region-handle.end {
+            right: 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* Controls - 180px */
+        .controls-container {
+            height: 180px;
+            background: #2a2a2a;
+            padding: 20px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .control {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #999999;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            flex: 1;
+            height: 6px;
+            background: #404040;
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #ff8c00;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #ffa033;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #ff8c00;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        input[type="range"]::-moz-range-thumb:hover {
+            background: #ffa033;
+        }
+
+        .slider-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            min-width: 70px;
+            text-align: right;
+        }
+
+        .info-row {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+            padding-top: 5px;
+            border-top: 1px solid #333;
+        }
+
+        .toggle-button {
+            padding: 8px 16px;
+            background: #404040;
+            border: none;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .toggle-button.active {
+            background: #ff8c00;
+            color: #1a1a1a;
+        }
+
+        .toggle-button:hover {
+            background: #505050;
+        }
+
+        .toggle-button.active:hover {
+            background: #ffa033;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: #999999;
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="plugin-container">
+        <!-- Header Section -->
+        <div class="header">
+            <div class="drop-zone" id="dropZone">
+                Drop Sample Here or Click to Browse
+            </div>
+            <button class="browse-button" id="browseButton">Browse...</button>
+            <div class="plugin-title">SEKTOR</div>
+        </div>
+
+        <!-- Waveform Display Section -->
+        <div class="waveform-container">
+            <div class="waveform-canvas" id="waveformCanvas">
+                <canvas id="canvas"></canvas>
+                <div class="region-handle start" id="regionStart"></div>
+                <div class="region-handle end" id="regionEnd"></div>
+            </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="controls-container">
+            <!-- First Row: Grain Size, Density, Pitch Shift, Spacing -->
+            <div class="controls-row">
+                <div class="control">
+                    <div class="control-label">Grain Size</div>
+                    <div class="slider-container">
+                        <input type="range" id="grainSizeSlider" min="0" max="1" step="0.001" value="0.184">
+                        <div class="slider-value" id="grainSizeValue">100.0 ms</div>
+                    </div>
+                </div>
+
+                <div class="control">
+                    <div class="control-label">Density</div>
+                    <div class="slider-container">
+                        <input type="range" id="densitySlider" min="0" max="1" step="0.001" value="0.246">
+                        <div class="slider-value" id="densityValue">50.0 g/s</div>
+                    </div>
+                </div>
+
+                <div class="control">
+                    <div class="control-label">Pitch Shift</div>
+                    <div class="slider-container">
+                        <input type="range" id="pitchShiftSlider" min="0" max="1" step="0.001" value="0.5">
+                        <div class="slider-value" id="pitchShiftValue">0.0 st</div>
+                    </div>
+                </div>
+
+                <div class="control">
+                    <div class="control-label">Spacing</div>
+                    <div class="slider-container">
+                        <input type="range" id="spacingSlider" min="0" max="1" step="0.001" value="0.474">
+                        <div class="slider-value" id="spacingValue">1.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Second Row: Toggle and Info -->
+            <div class="info-row">
+                <button class="toggle-button active" id="polyphonyToggle">Polyphony: Poly</button>
+                <div class="info-item">
+                    <span>Sample Length:</span>
+                    <span class="info-value" id="sampleLength">--</span>
+                </div>
+                <div class="info-item">
+                    <span>Region Length:</span>
+                    <span class="info-value" id="regionLength">--</span>
+                </div>
+                <div class="info-item">
+                    <span>CPU Usage:</span>
+                    <span class="info-value" id="cpuUsage">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script type="module">
+        // ====================================================================
+        // NATIVE APPLICATION FEEL (JavaScript)
+        // ====================================================================
+
+        // Disable right-click context menu
+        document.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            return false;
+        });
+
+        // Disable default drag behaviors
+        document.addEventListener("dragstart", (e) => {
+            e.preventDefault();
+        });
+
+        // ====================================================================
+        // WAVEFORM VISUALIZATION
+        // ====================================================================
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const waveformCanvas = document.getElementById('waveformCanvas');
+
+        // Sample data (mock - will be replaced by real sample from C++)
+        let sampleData = null;
+        let sampleLength = 0;
+
+        // Region markers (normalized 0-1)
+        let regionStart = 0.0;
+        let regionEnd = 1.0;
+
+        // Initialize canvas size
+        function resizeCanvas() {
+            const rect = waveformCanvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            drawWaveform();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Draw waveform
+        function drawWaveform() {
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear canvas
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, width, height);
+
+            if (!sampleData) {
+                // No sample loaded - show placeholder
+                ctx.fillStyle = '#666666';
+                ctx.font = '14px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('No sample loaded', width / 2, height / 2);
+                return;
+            }
+
+            // Draw waveform
+            const centerY = height / 2;
+            const samplesPerPixel = Math.ceil(sampleData.length / width);
+
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+
+            for (let x = 0; x < width; x++) {
+                const sampleStart = x * samplesPerPixel;
+                const sampleEnd = Math.min(sampleStart + samplesPerPixel, sampleData.length);
+
+                // Find min/max in this pixel range
+                let min = 0, max = 0;
+                for (let i = sampleStart; i < sampleEnd; i++) {
+                    const sample = sampleData[i];
+                    if (sample < min) min = sample;
+                    if (sample > max) max = sample;
+                }
+
+                const y1 = centerY - (min * height * 0.4);
+                const y2 = centerY - (max * height * 0.4);
+
+                if (x === 0) {
+                    ctx.moveTo(x, y1);
+                } else {
+                    ctx.lineTo(x, y1);
+                }
+                ctx.lineTo(x, y2);
+            }
+
+            ctx.stroke();
+
+            // Draw region highlight
+            const regionStartX = regionStart * width;
+            const regionEndX = regionEnd * width;
+
+            ctx.fillStyle = 'rgba(255, 140, 0, 0.3)';
+            ctx.fillRect(regionStartX, 0, regionEndX - regionStartX, height);
+
+            // Draw region markers
+            ctx.strokeStyle = '#ff8c00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(regionStartX, 0);
+            ctx.lineTo(regionStartX, height);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(regionEndX, 0);
+            ctx.lineTo(regionEndX, height);
+            ctx.stroke();
+        }
+
+        // Generate mock sample data
+        function generateMockSample() {
+            const sampleRate = 44100;
+            const duration = 2.0; // 2 seconds
+            const numSamples = Math.floor(sampleRate * duration);
+            const data = new Float32Array(numSamples);
+
+            // Generate simple sine wave with decay
+            for (let i = 0; i < numSamples; i++) {
+                const t = i / sampleRate;
+                const decay = Math.exp(-t * 2.0);
+                const freq = 220 + Math.sin(t * 2) * 50;
+                data[i] = Math.sin(2 * Math.PI * freq * t) * decay * 0.8;
+            }
+
+            return data;
+        }
+
+        // Load sample (mock implementation)
+        function loadSample(file) {
+            // In real implementation, this would send file to C++ for loading
+            console.log('Loading sample:', file ? file.name : 'mock');
+
+            // Generate mock waveform
+            sampleData = generateMockSample();
+            sampleLength = sampleData.length / 44100; // Duration in seconds
+
+            // Update info display
+            document.getElementById('sampleLength').textContent = sampleLength.toFixed(2) + ' s';
+            updateRegionLength();
+
+            // Redraw waveform
+            drawWaveform();
+        }
+
+        // Update region length display
+        function updateRegionLength() {
+            if (sampleLength > 0) {
+                const regionDuration = (regionEnd - regionStart) * sampleLength;
+                document.getElementById('regionLength').textContent = regionDuration.toFixed(2) + ' s';
+            }
+        }
+
+        // ====================================================================
+        // DRAG & DROP SAMPLE LOADING
+        // ====================================================================
+
+        const dropZone = document.getElementById('dropZone');
+        const browseButton = document.getElementById('browseButton');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragging');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragging');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragging');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                loadSample(files[0]);
+            }
+        });
+
+        dropZone.addEventListener('click', () => {
+            browseButton.click();
+        });
+
+        browseButton.addEventListener('click', () => {
+            // In real implementation, this would trigger JUCE FileChooser
+            console.log('Opening file browser...');
+            loadSample(null); // Load mock sample
+        });
+
+        // Load mock sample on startup
+        loadSample(null);
+
+        // ====================================================================
+        // REGION MARKER DRAGGING
+        // ====================================================================
+
+        const regionStartHandle = document.getElementById('regionStart');
+        const regionEndHandle = document.getElementById('regionEnd');
+
+        let isDraggingStart = false;
+        let isDraggingEnd = false;
+
+        regionStartHandle.addEventListener('mousedown', (e) => {
+            isDraggingStart = true;
+            e.preventDefault();
+        });
+
+        regionEndHandle.addEventListener('mousedown', (e) => {
+            isDraggingEnd = true;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDraggingStart && !isDraggingEnd) return;
+
+            const rect = waveformCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const normalized = Math.max(0, Math.min(1, x / rect.width));
+
+            if (isDraggingStart) {
+                regionStart = Math.min(normalized, regionEnd - 0.01);
+                regionStartHandle.style.left = (regionStart * 100) + '%';
+
+                // Update parameter (will be sent to C++ in real implementation)
+                console.log('Region start:', regionStart);
+            } else if (isDraggingEnd) {
+                regionEnd = Math.max(normalized, regionStart + 0.01);
+                const endPercent = (regionEnd * 100);
+                regionEndHandle.style.right = (100 - endPercent) + '%';
+
+                // Update parameter (will be sent to C++ in real implementation)
+                console.log('Region end:', regionEnd);
+            }
+
+            updateRegionLength();
+            drawWaveform();
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDraggingStart = false;
+            isDraggingEnd = false;
+        });
+
+        // ====================================================================
+        // PARAMETER CONTROLS
+        // ====================================================================
+
+        // Grain Size slider
+        const grainSizeSlider = document.getElementById('grainSizeSlider');
+        const grainSizeValue = document.getElementById('grainSizeValue');
+
+        grainSizeSlider.addEventListener('input', (e) => {
+            const normalized = parseFloat(e.target.value);
+            const value = 10.0 + normalized * (500.0 - 10.0);
+            grainSizeValue.textContent = value.toFixed(1) + ' ms';
+        });
+
+        // Density slider
+        const densitySlider = document.getElementById('densitySlider');
+        const densityValue = document.getElementById('densityValue');
+
+        densitySlider.addEventListener('input', (e) => {
+            const normalized = parseFloat(e.target.value);
+            const value = 1.0 + normalized * (200.0 - 1.0);
+            densityValue.textContent = value.toFixed(1) + ' g/s';
+        });
+
+        // Pitch Shift slider
+        const pitchShiftSlider = document.getElementById('pitchShiftSlider');
+        const pitchShiftValue = document.getElementById('pitchShiftValue');
+
+        pitchShiftSlider.addEventListener('input', (e) => {
+            const normalized = parseFloat(e.target.value);
+            const value = -12.0 + normalized * (12.0 - (-12.0));
+            const sign = value >= 0 ? '+' : '';
+            pitchShiftValue.textContent = sign + value.toFixed(1) + ' st';
+        });
+
+        // Spacing slider
+        const spacingSlider = document.getElementById('spacingSlider');
+        const spacingValue = document.getElementById('spacingValue');
+
+        spacingSlider.addEventListener('input', (e) => {
+            const normalized = parseFloat(e.target.value);
+            const value = 0.1 + normalized * (2.0 - 0.1);
+            spacingValue.textContent = value.toFixed(2);
+        });
+
+        // Polyphony toggle
+        const polyphonyToggle = document.getElementById('polyphonyToggle');
+        let isPolyphonic = true;
+
+        polyphonyToggle.addEventListener('click', () => {
+            isPolyphonic = !isPolyphonic;
+            polyphonyToggle.textContent = isPolyphonic ? 'Polyphony: Poly' : 'Polyphony: Mono';
+            polyphonyToggle.classList.toggle('active', isPolyphonic);
+            console.log('Polyphony mode:', isPolyphonic);
+        });
+
+        // ====================================================================
+        // CPU USAGE SIMULATION (mock - will be real data from C++)
+        // ====================================================================
+
+        const cpuUsage = document.getElementById('cpuUsage');
+        let cpuValue = 0;
+
+        setInterval(() => {
+            // Mock CPU usage (will be real data from C++ timer)
+            cpuValue = 5 + Math.random() * 10;
+            cpuUsage.textContent = cpuValue.toFixed(1) + '%';
+        }, 1000);
+
+        // ====================================================================
+        // INITIALIZATION COMPLETE
+        // ====================================================================
+
+        console.log('Sektor UI initialized (standalone mockup)');
+    </script>
+</body>
+</html>
