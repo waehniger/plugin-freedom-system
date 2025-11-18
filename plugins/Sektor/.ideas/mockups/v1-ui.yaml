@@ -1,0 +1,183 @@
+# Sektor UI Design Specification v1
+# Minimalistic Granular Sampler with Interactive Waveform Region Marking
+# Generated: 2025-11-18
+
+window:
+  width: 900
+  height: 600
+  resizable: false
+
+colors:
+  background: "#2a2a2a"
+  accent: "#ff8c00"
+  text: "#ffffff"
+  waveform: "#cccccc"
+  region_highlight: "#ff8c00"
+  secondary: "#666666"
+
+typography:
+  header: "Inter, system-ui, sans-serif"
+  body: "Inter, system-ui, sans-serif"
+  size:
+    large: "18px"
+    medium: "14px"
+    small: "11px"
+
+layout:
+  type: custom
+  sections:
+    - id: header
+      height: 60
+      background: "#1a1a1a"
+      description: "Sample loading area and plugin title"
+    - id: waveform_display
+      height: 360
+      background: "#2a2a2a"
+      description: "Interactive waveform with region markers (60% of window)"
+    - id: controls
+      height: 180
+      background: "#2a2a2a"
+      description: "Granular parameter controls (40% of window)"
+
+controls:
+  - id: grain_size
+    type: slider
+    label: "Grain Size"
+    parameter: "grain_size"
+    range: [10.0, 500.0]
+    unit: "ms"
+    default: 100.0
+    decimals: 1
+    orientation: horizontal
+    position: {x: 30, y: 480}
+    size: {width: 180, height: 30}
+
+  - id: density
+    type: slider
+    label: "Density"
+    parameter: "density"
+    range: [1.0, 200.0]
+    unit: "grains/sec"
+    default: 50.0
+    decimals: 1
+    orientation: horizontal
+    position: {x: 240, y: 480}
+    size: {width: 180, height: 30}
+
+  - id: pitch_shift
+    type: slider
+    label: "Pitch Shift"
+    parameter: "pitch_shift"
+    range: [-12.0, 12.0]
+    unit: "semitones"
+    default: 0.0
+    decimals: 1
+    orientation: horizontal
+    position: {x: 450, y: 480}
+    size: {width: 180, height: 30}
+
+  - id: spacing
+    type: slider
+    label: "Spacing"
+    parameter: "spacing"
+    range: [0.1, 2.0]
+    unit: ""
+    default: 1.0
+    decimals: 2
+    orientation: horizontal
+    position: {x: 660, y: 480}
+    size: {width: 180, height: 30}
+
+  - id: region_start
+    type: custom
+    label: "Region Start"
+    parameter: "region_start"
+    range: [0.0, 1.0]
+    unit: ""
+    default: 0.0
+    decimals: 3
+    description: "Integrated into waveform display as drag handle"
+    position: {x: 50, y: 100}
+    size: {width: 10, height: 260}
+
+  - id: region_end
+    type: custom
+    label: "Region End"
+    parameter: "region_end"
+    range: [0.0, 1.0]
+    unit: ""
+    default: 1.0
+    decimals: 3
+    description: "Integrated into waveform display as drag handle"
+    position: {x: 840, y: 100}
+    size: {width: 10, height: 260}
+
+  - id: polyphony_mode
+    type: toggle
+    label: "Polyphony Mode"
+    parameter: "polyphony_mode"
+    parameter_type: bool
+    default: true
+    toggle_labels: ["Mono", "Poly"]
+    position: {x: 30, y: 540}
+    size: {width: 120, height: 30}
+
+special_elements:
+  - id: sample_drop_zone
+    type: file_drop_zone
+    description: "Drag & drop sample loading area"
+    position: {x: 30, y: 10}
+    size: {width: 600, height: 40}
+    label: "Drop Sample Here or Click to Browse"
+    accepted_formats: [".wav", ".aif", ".aiff", ".flac", ".mp3"]
+
+  - id: file_browser_button
+    type: button
+    label: "Browse..."
+    position: {x: 640, y: 10}
+    size: {width: 100, height: 40}
+    action: "open_file_browser"
+
+  - id: plugin_title
+    type: label
+    text: "SEKTOR"
+    position: {x: 760, y: 10}
+    size: {width: 120, height: 40}
+    font_size: 24
+    font_weight: "bold"
+    color: "#ff8c00"
+
+  - id: waveform_canvas
+    type: canvas
+    description: "Interactive waveform display with region highlight"
+    position: {x: 30, y: 60}
+    size: {width: 840, height: 360}
+    background: "#1a1a1a"
+    waveform_color: "#cccccc"
+    region_highlight_color: "#ff8c00"
+    region_highlight_alpha: 0.3
+
+  - id: info_display
+    type: info_panel
+    description: "Shows sample length, region length, CPU usage"
+    position: {x: 180, y: 540}
+    size: {width: 690, height: 30}
+    fields:
+      - label: "Sample Length"
+        id: "sample_length"
+        default: "--"
+      - label: "Region Length"
+        id: "region_length"
+        default: "--"
+      - label: "CPU Usage"
+        id: "cpu_usage"
+        default: "0%"
+
+notes:
+  - All positions in pixels from top-left (0,0)
+  - Parameter IDs must match PluginProcessor APVTS
+  - Region start/end are normalized (0.0-1.0) and converted to sample positions in C++
+  - Waveform canvas requires WebGL or Canvas2D implementation
+  - Drop zone handles file drag events and passes file path to C++
+  - Info display updates via C++ timer events (16 FPS)
+  - Polyphony mode toggle: false = Mono, true = Poly

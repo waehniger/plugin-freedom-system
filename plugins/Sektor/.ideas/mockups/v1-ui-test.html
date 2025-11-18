@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sektor UI Mockup v1 - Minimalistic Granular Sampler</title>
+
+  <style>
+    /* CRITICAL: WebView constraints - NO viewport units */
+    html, body {
+      height: 100%;  /* REQUIRED - replaces viewport units */
+      margin: 0;
+      padding: 0;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      /* Native application feel */
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: default;
+      overflow: hidden;
+
+      /* Browser testing only - centering frame */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    /* Fixed-size preview frame for browser testing */
+    .plugin-frame {
+      width: 900px;
+      height: 600px;
+      border: 2px solid #444;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      overflow: hidden;
+      position: relative;
+      background: #2a2a2a;
+    }
+
+    /* Container fills frame */
+    .container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      color: #ffffff;
+    }
+
+    /* Header section - sample loading */
+    .header {
+      height: 60px;
+      background: #1a1a1a;
+      display: flex;
+      align-items: center;
+      padding: 0 30px;
+      border-bottom: 1px solid #333;
+    }
+
+    .drop-zone {
+      flex: 1;
+      max-width: 600px;
+      height: 40px;
+      border: 2px dashed #666;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      color: #999;
+    }
+
+    .drop-zone:hover {
+      border-color: #ff8c00;
+      color: #ff8c00;
+      background: rgba(255, 140, 0, 0.05);
+    }
+
+    .drop-zone.drag-over {
+      border-color: #ff8c00;
+      background: rgba(255, 140, 0, 0.1);
+      color: #ff8c00;
+    }
+
+    .browse-button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      background: #444;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    .browse-button:hover {
+      background: #555;
+    }
+
+    .plugin-title {
+      margin-left: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #ff8c00;
+      letter-spacing: 2px;
+    }
+
+    /* Waveform display section (60% height) */
+    .waveform-section {
+      height: 360px;
+      position: relative;
+      background: #1a1a1a;
+      margin: 30px;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .waveform-canvas {
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    .region-highlight {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: rgba(255, 140, 0, 0.3);
+      pointer-events: none;
+    }
+
+    .region-marker {
+      position: absolute;
+      top: 0;
+      width: 10px;
+      height: 100%;
+      background: #ff8c00;
+      cursor: ew-resize;
+      transition: background 0.2s;
+      z-index: 10;
+    }
+
+    .region-marker:hover {
+      background: #ffa500;
+    }
+
+    .region-marker.start {
+      left: 0;
+    }
+
+    .region-marker.end {
+      right: 0;
+    }
+
+    /* Controls section (40% height) */
+    .controls-section {
+      flex: 1;
+      padding: 0 30px 30px 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .sliders-row {
+      display: flex;
+      gap: 30px;
+      align-items: flex-start;
+    }
+
+    .slider-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .slider-label {
+      font-size: 12px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .slider-value {
+      font-size: 14px;
+      color: #fff;
+      font-weight: 500;
+      min-height: 20px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 30px;
+      -webkit-appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-track {
+      width: 100%;
+      height: 4px;
+      background: #444;
+      border-radius: 2px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #ff8c00;
+      cursor: pointer;
+      margin-top: -8px;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #ffa500;
+    }
+
+    input[type="range"]::-moz-range-track {
+      width: 100%;
+      height: 4px;
+      background: #444;
+      border-radius: 2px;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #ff8c00;
+      cursor: pointer;
+      border: none;
+    }
+
+    /* Bottom row - polyphony toggle and info display */
+    .bottom-row {
+      display: flex;
+      gap: 30px;
+      align-items: center;
+    }
+
+    .toggle-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .toggle-button {
+      padding: 8px 20px;
+      background: #444;
+      border: 2px solid #444;
+      border-radius: 4px;
+      color: #999;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+
+    .toggle-button.active {
+      background: #ff8c00;
+      border-color: #ff8c00;
+      color: #fff;
+    }
+
+    .info-display {
+      flex: 1;
+      display: flex;
+      gap: 40px;
+      font-size: 11px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .info-label {
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .info-value {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* Debug monitor (test only) */
+    .debug-monitor {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.85);
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 8px 12px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      min-width: 180px;
+      pointer-events: none;
+      z-index: 10000;
+    }
+
+    .debug-label {
+      color: #666;
+      font-size: 9px;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .debug-param {
+      font-weight: bold;
+      color: #0f0;
+    }
+
+    .debug-value {
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .debug-normalized {
+      color: #888;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin-frame">
+    <div class="container">
+      <!-- Header: Sample loading -->
+      <div class="header">
+        <div class="drop-zone" id="dropZone">
+          Drop Sample Here or Click to Browse
+        </div>
+        <button class="browse-button" id="browseButton">Browse...</button>
+        <div class="plugin-title">SEKTOR</div>
+      </div>
+
+      <!-- Waveform display -->
+      <div class="waveform-section">
+        <canvas class="waveform-canvas" id="waveformCanvas"></canvas>
+        <div class="region-highlight" id="regionHighlight"></div>
+        <div class="region-marker start" id="regionStart"></div>
+        <div class="region-marker end" id="regionEnd"></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-section">
+        <!-- Sliders row -->
+        <div class="sliders-row">
+          <div class="slider-group">
+            <div class="slider-label">Grain Size</div>
+            <input type="range" id="grain_size" min="10" max="500" step="0.1" value="100" />
+            <div class="slider-value" id="grain_size_value">100.0 ms</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">Density</div>
+            <input type="range" id="density" min="1" max="200" step="0.1" value="50" />
+            <div class="slider-value" id="density_value">50.0 grains/sec</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">Pitch Shift</div>
+            <input type="range" id="pitch_shift" min="-12" max="12" step="0.1" value="0" />
+            <div class="slider-value" id="pitch_shift_value">0.0 semitones</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">Spacing</div>
+            <input type="range" id="spacing" min="0.1" max="2" step="0.01" value="1" />
+            <div class="slider-value" id="spacing_value">1.00</div>
+          </div>
+        </div>
+
+        <!-- Bottom row: polyphony toggle and info display -->
+        <div class="bottom-row">
+          <div class="toggle-group">
+            <button class="toggle-button" id="monoButton">Mono</button>
+            <button class="toggle-button active" id="polyButton">Poly</button>
+          </div>
+
+          <div class="info-display">
+            <div class="info-item">
+              <div class="info-label">Sample Length</div>
+              <div class="info-value" id="sampleLength">No sample loaded</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Region Length</div>
+              <div class="info-value" id="regionLength">--</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">CPU Usage</div>
+              <div class="info-value" id="cpuUsage">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debug monitor (test only) -->
+  <div class="debug-monitor">
+    <div class="debug-label">PARAMETER MONITOR</div>
+    <div class="debug-param" id="debugParam">—</div>
+    <div class="debug-value" id="debugValue">—</div>
+    <div class="debug-normalized" id="debugNormalized">—</div>
+  </div>
+
+  <script>
+    // Mock JUCE backend for browser testing
+    window.Juce = {
+      getSliderState: (id) => ({
+        normalisedValue: 0.5,
+        getNormalisedValue: () => 0.5,
+        setNormalisedValue: (v) => console.log(`${id} set to ${v}`),
+        valueChangedEvent: {
+          addListener: (fn) => console.log(`Listener added for ${id}`)
+        }
+      }),
+      getToggleState: (id) => ({
+        value: false,
+        valueChangedEvent: {
+          addListener: (fn) => console.log(`Listener added for ${id}`)
+        }
+      })
+    };
+
+    // Disable context menu (REQUIRED)
+    document.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      return false;
+    });
+
+    // Parameter state
+    const state = {
+      grain_size: 100.0,
+      density: 50.0,
+      pitch_shift: 0.0,
+      spacing: 1.0,
+      region_start: 0.0,
+      region_end: 1.0,
+      polyphony_mode: true,
+      sample_loaded: false,
+      sample_length: 0
+    };
+
+    // Debug monitor update
+    function updateDebugMonitor(paramId, value, normalizedValue) {
+      document.getElementById('debugParam').textContent = paramId;
+      document.getElementById('debugValue').textContent = formatValue(paramId, value);
+      document.getElementById('debugNormalized').textContent = `${(normalizedValue * 100).toFixed(1)}%`;
+    }
+
+    function formatValue(paramId, value) {
+      switch(paramId) {
+        case 'grain_size':
+          return `${value.toFixed(1)} ms`;
+        case 'density':
+          return `${value.toFixed(1)} grains/sec`;
+        case 'pitch_shift':
+          return `${value >= 0 ? '+' : ''}${value.toFixed(1)} semitones`;
+        case 'spacing':
+          return value.toFixed(2);
+        case 'region_start':
+        case 'region_end':
+          return `${(value * 100).toFixed(1)}%`;
+        default:
+          return value.toFixed(2);
+      }
+    }
+
+    // Slider bindings
+    document.addEventListener("DOMContentLoaded", () => {
+      // Grain size
+      const grainSizeSlider = document.getElementById("grain_size");
+      grainSizeSlider.addEventListener("input", (e) => {
+        const value = parseFloat(e.target.value);
+        state.grain_size = value;
+        document.getElementById("grain_size_value").textContent = `${value.toFixed(1)} ms`;
+        const normalized = (value - 10) / (500 - 10);
+        updateDebugMonitor('grain_size', value, normalized);
+        console.log(`grain_size: ${value} ms (normalized: ${normalized.toFixed(3)})`);
+      });
+
+      // Density
+      const densitySlider = document.getElementById("density");
+      densitySlider.addEventListener("input", (e) => {
+        const value = parseFloat(e.target.value);
+        state.density = value;
+        document.getElementById("density_value").textContent = `${value.toFixed(1)} grains/sec`;
+        const normalized = (value - 1) / (200 - 1);
+        updateDebugMonitor('density', value, normalized);
+        console.log(`density: ${value} grains/sec (normalized: ${normalized.toFixed(3)})`);
+      });
+
+      // Pitch shift
+      const pitchShiftSlider = document.getElementById("pitch_shift");
+      pitchShiftSlider.addEventListener("input", (e) => {
+        const value = parseFloat(e.target.value);
+        state.pitch_shift = value;
+        const sign = value >= 0 ? '+' : '';
+        document.getElementById("pitch_shift_value").textContent = `${sign}${value.toFixed(1)} semitones`;
+        const normalized = (value - (-12)) / (12 - (-12));
+        updateDebugMonitor('pitch_shift', value, normalized);
+        console.log(`pitch_shift: ${value} semitones (normalized: ${normalized.toFixed(3)})`);
+      });
+
+      // Spacing
+      const spacingSlider = document.getElementById("spacing");
+      spacingSlider.addEventListener("input", (e) => {
+        const value = parseFloat(e.target.value);
+        state.spacing = value;
+        document.getElementById("spacing_value").textContent = value.toFixed(2);
+        const normalized = (value - 0.1) / (2.0 - 0.1);
+        updateDebugMonitor('spacing', value, normalized);
+        console.log(`spacing: ${value} (normalized: ${normalized.toFixed(3)})`);
+      });
+
+      // Polyphony toggle
+      const monoButton = document.getElementById("monoButton");
+      const polyButton = document.getElementById("polyButton");
+
+      monoButton.addEventListener("click", () => {
+        state.polyphony_mode = false;
+        monoButton.classList.add("active");
+        polyButton.classList.remove("active");
+        console.log("polyphony_mode: false (Mono)");
+      });
+
+      polyButton.addEventListener("click", () => {
+        state.polyphony_mode = true;
+        polyButton.classList.add("active");
+        monoButton.classList.remove("active");
+        console.log("polyphony_mode: true (Poly)");
+      });
+
+      // Drag & drop zone
+      const dropZone = document.getElementById("dropZone");
+      const browseButton = document.getElementById("browseButton");
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("drag-over");
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          loadSample(files[0].name);
+        }
+      });
+
+      dropZone.addEventListener("click", () => {
+        console.log("Open file browser (simulated)");
+        loadSample("example_sample.wav");
+      });
+
+      browseButton.addEventListener("click", () => {
+        console.log("Open file browser (simulated)");
+        loadSample("example_sample.wav");
+      });
+
+      // Region markers
+      const regionStart = document.getElementById("regionStart");
+      const regionEnd = document.getElementById("regionEnd");
+      const regionHighlight = document.getElementById("regionHighlight");
+      const waveformSection = document.querySelector(".waveform-section");
+
+      let dragging = null;
+
+      function updateRegion() {
+        const startPos = state.region_start * waveformSection.offsetWidth;
+        const endPos = state.region_end * waveformSection.offsetWidth;
+
+        regionStart.style.left = `${startPos}px`;
+        regionEnd.style.left = `${endPos - 10}px`;
+
+        regionHighlight.style.left = `${startPos}px`;
+        regionHighlight.style.width = `${endPos - startPos}px`;
+
+        if (state.sample_loaded) {
+          const regionSamples = (state.region_end - state.region_start) * state.sample_length;
+          const regionMs = (regionSamples / 44100) * 1000;
+          document.getElementById("regionLength").textContent = `${regionMs.toFixed(1)} ms`;
+        }
+      }
+
+      regionStart.addEventListener("mousedown", (e) => {
+        dragging = "start";
+        e.preventDefault();
+      });
+
+      regionEnd.addEventListener("mousedown", (e) => {
+        dragging = "end";
+        e.preventDefault();
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (dragging) {
+          const rect = waveformSection.getBoundingClientRect();
+          let normalized = (e.clientX - rect.left) / rect.width;
+          normalized = Math.max(0, Math.min(1, normalized));
+
+          if (dragging === "start") {
+            state.region_start = Math.min(normalized, state.region_end - 0.01);
+            updateDebugMonitor('region_start', state.region_start, state.region_start);
+            console.log(`region_start: ${state.region_start.toFixed(3)}`);
+          } else if (dragging === "end") {
+            state.region_end = Math.max(normalized, state.region_start + 0.01);
+            updateDebugMonitor('region_end', state.region_end, state.region_end);
+            console.log(`region_end: ${state.region_end.toFixed(3)}`);
+          }
+
+          updateRegion();
+        }
+      });
+
+      document.addEventListener("mouseup", () => {
+        dragging = null;
+      });
+
+      // Waveform rendering
+      const canvas = document.getElementById("waveformCanvas");
+      const ctx = canvas.getContext("2d");
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        drawWaveform();
+      }
+
+      function drawWaveform() {
+        const width = canvas.width / window.devicePixelRatio;
+        const height = canvas.height / window.devicePixelRatio;
+
+        ctx.clearRect(0, 0, width, height);
+
+        if (!state.sample_loaded) {
+          // No sample loaded - show placeholder
+          ctx.fillStyle = "#666";
+          ctx.font = "14px Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("No sample loaded", width / 2, height / 2);
+          return;
+        }
+
+        // Draw simulated waveform
+        ctx.strokeStyle = "#cccccc";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+
+        const centerY = height / 2;
+        const amplitude = height / 2 - 20;
+
+        for (let x = 0; x < width; x++) {
+          const t = x / width;
+          // Simulated waveform (sine wave with noise)
+          const y = centerY + Math.sin(t * Math.PI * 20 + Math.random() * 0.5) * amplitude * (1 - t * 0.3);
+
+          if (x === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+
+        ctx.stroke();
+
+        // Draw center line
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.stroke();
+      }
+
+      function loadSample(filename) {
+        state.sample_loaded = true;
+        state.sample_length = 220500; // Simulated 5 seconds at 44.1kHz
+        document.getElementById("sampleLength").textContent = `${filename} (5.0 sec)`;
+        drawWaveform();
+        updateRegion();
+        console.log(`Sample loaded: ${filename}`);
+      }
+
+      // Initialize
+      resizeCanvas();
+      updateRegion();
+
+      // Simulate CPU usage
+      setInterval(() => {
+        const cpu = Math.random() * 10 + 5;
+        document.getElementById("cpuUsage").textContent = `${cpu.toFixed(1)}%`;
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
