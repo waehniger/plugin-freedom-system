@@ -54,6 +54,45 @@ When these terms appear in the system, the plain-language equivalent will be sho
 - **Hooks**: `.claude/hooks/` - Validation gates (PostToolUse, SubagentStop, UserPromptSubmit, Stop, PreCompact, SessionStart)
 - **Knowledge Base**: `troubleshooting/` - Dual-indexed (by-plugin + by-symptom) problem solutions
 
+### Build System Architecture
+
+**CRITICAL: Workspace-Level Build System**
+
+All plugins share a unified CMake workspace build system:
+
+- **Workspace Root**: All CMake commands must run from `/path/to/plugin-freedom-system/`
+- **Plugin CMakeLists.txt**: Individual plugin CMakeLists.txt files are NOT standalone projects
+- **JUCE Dependency**: Plugins depend on parent workspace CMakeLists.txt for JUCE setup and configuration
+
+**Build Commands (from workspace root):**
+```bash
+# Configure workspace (first time or after CMakeLists.txt changes)
+cmake -B build -G Ninja
+
+# Build specific plugin formats
+cmake --build build --target PluginName_VST3
+cmake --build build --target PluginName_AU
+cmake --build build --target PluginName_Standalone
+
+# Build all formats
+scripts/build-and-install.sh PluginName
+```
+
+**Standalone App Locations:**
+- Debug: `build/plugins/[PluginName]/[PluginName]_artefacts/Debug/Standalone/[PluginName].app`
+- Release: `build/plugins/[PluginName]/[PluginName]_artefacts/Release/Standalone/[PluginName].app`
+
+**Common Build Errors:**
+- ❌ `cd plugins/Sektor && cmake -B build` → FAILS with "Unknown CMake command juce_add_plugin"
+- ❌ `cmake -B plugins/Sektor/build -S plugins/Sektor` → FAILS (missing parent JUCE setup)
+- ✅ `cmake --build build --target Sektor_Standalone` → WORKS (from workspace root)
+
+**When to Use /show-standalone:**
+- Quick UI testing during development
+- Visual inspection of layout and controls
+- MIDI/parameter testing without DAW
+- See `/show-standalone` command documentation for details
+
 ### Workflow Modes
 
 - **Manual Mode** (default): Present decision menus at each checkpoint for user control

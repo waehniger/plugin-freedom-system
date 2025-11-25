@@ -29,18 +29,23 @@ Note: This command works at any stage of development, even before completion.
   </step>
 
   <step order="2" conditional="true">
-    Check if Standalone build exists:
-    `build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Debug/Standalone/${PLUGIN_NAME}.app`
+    Check if Standalone build exists (try both Debug and Release):
+    - Debug: `build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Debug/Standalone/${PLUGIN_NAME}.app`
+    - Release: `build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Release/Standalone/${PLUGIN_NAME}.app`
   </step>
 
   <step order="3" condition="!build_exists" tool="bash">
-    Build Standalone target:
+    Build Standalone target from workspace root:
     `cmake --build build --target ${PLUGIN_NAME}_Standalone`
+
+    IMPORTANT: Must build from workspace root, not plugin subdirectory.
+    Plugin CMakeLists.txt depends on parent project for JUCE setup.
   </step>
 
   <step order="4" required="true" tool="bash">
-    Launch application:
-    `open "build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Debug/Standalone/${PLUGIN_NAME}.app"`
+    Launch application (try Release first, fallback to Debug):
+    - Release: `open "build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Release/Standalone/${PLUGIN_NAME}.app"`
+    - Debug: `open "build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Debug/Standalone/${PLUGIN_NAME}.app"`
   </step>
 
   <step order="5" required="true">
@@ -93,8 +98,23 @@ Note: This command works at any stage of development, even before completion.
 
 ## Notes
 
-- Uses Debug build (faster compilation during development)
+- Prefers Release build (optimized, matches installed plugins) but falls back to Debug
 - Provides built-in audio I/O for basic testing
 - Supports MIDI input for testing MIDI-controlled parameters
 - Not a replacement for full DAW testing
 - Can keep open and rebuild to see changes
+
+## Build Location Details
+
+**Workspace Structure:**
+- Plugins must be built from workspace root: `/path/to/plugin-freedom-system/`
+- Individual plugin CMakeLists.txt files are NOT standalone projects
+- They depend on parent CMakeLists.txt for JUCE configuration
+
+**Build Paths:**
+- Debug: `build/plugins/[PluginName]/[PluginName]_artefacts/Debug/Standalone/[PluginName].app`
+- Release: `build/plugins/[PluginName]/[PluginName]_artefacts/Release/Standalone/[PluginName].app`
+
+**Common Mistakes:**
+- ❌ `cd plugins/Sektor && cmake -B build` → FAILS (missing JUCE commands)
+- ✅ `cmake --build build --target Sektor_Standalone` → WORKS (from workspace root)
