@@ -50,6 +50,9 @@ private:
     void updateUIStatus(const juce::String& message);
     void openFileBrowser();
 
+    // Waveform visualization
+    void sendWaveformDataToJS(const juce::AudioBuffer<float>& buffer);
+
     std::unique_ptr<juce::FileChooser> fileChooser;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SektorAudioProcessorEditor)

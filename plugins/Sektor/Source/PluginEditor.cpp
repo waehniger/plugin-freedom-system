@@ -206,6 +206,9 @@ void SektorAudioProcessorEditor::loadSampleAsync(const juce::File& file)
         reader->read(tempBuffer.get(), 0, static_cast<int>(reader->lengthInSamples), 0, true, true);
         std::cout << "[SEKTOR SAMPLE] Audio data loaded successfully" << std::endl;
 
+        // Send waveform data to UI before moving buffer
+        sendWaveformDataToJS(*tempBuffer);
+
         // Atomic swap in processor (thread-safe)
         processorRef.setSampleBuffer(std::move(tempBuffer));
         std::cout << "[SEKTOR SAMPLE] Sample buffer swapped in processor" << std::endl;
@@ -250,6 +253,10 @@ void SektorAudioProcessorEditor::loadAudioFromBase64(const juce::String& base64D
                 );
 
                 reader->read(tempBuffer.get(), 0, static_cast<int>(reader->lengthInSamples), 0, true, true);
+
+                // Send waveform data to UI before moving buffer
+                sendWaveformDataToJS(*tempBuffer);
+
                 processorRef.setSampleBuffer(std::move(tempBuffer));
 
                 // 5. Update UI on message thread
@@ -310,6 +317,44 @@ void SektorAudioProcessorEditor::openFileBrowser()
                 }
             }
         );
+    });
+}
+
+void SektorAudioProcessorEditor::sendWaveformDataToJS(const juce::AudioBuffer<float>& buffer)
+{
+    // Configuration
+    const int numPoints = 1000; // Number of points for display
+    const int totalSamples = buffer.getNumSamples();
+
+    // Prevent division by zero with empty buffers
+    if (totalSamples <= 0) return;
+
+    juce::StringArray peaks;
+    const int samplesPerChunk = std::ceil((float)totalSamples / (float)numPoints);
+
+    // Downsampling (calculate only the peak per chunk)
+    for (int i = 0; i < numPoints; ++i)
+    {
+        int startSample = i * samplesPerChunk;
+        if (startSample >= totalSamples) break;
+
+        // Get magnitude (volume) for this region
+        // We use channel 0 (left) or mono
+        float magnitude = buffer.getMagnitude(0, startSample, std::min(samplesPerChunk, totalSamples - startSample));
+
+        // Limit to 0..1 and format
+        peaks.add(juce::String(magnitude, 3));
+    }
+
+    // Build JSON array string: "[0.1, 0.5, 0.2, ...]"
+    juce::String jsonStr = "[" + peaks.joinIntoString(",") + "]";
+
+    // Send to JS (must happen on message thread)
+    juce::MessageManager::callAsync([this, jsonStr]() {
+        if (webView) {
+            // Call the JS function 'updateWaveform'
+            webView->evaluateJavascript("if (window.updateWaveform) window.updateWaveform(" + jsonStr + ");");
+        }
     });
 }
 
