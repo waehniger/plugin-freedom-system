@@ -9,6 +9,8 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
     densityRelay = std::make_unique<juce::WebSliderRelay>("DENSITY");
     pitchShiftRelay = std::make_unique<juce::WebSliderRelay>("PITCH_SHIFT");
     spacingRelay = std::make_unique<juce::WebSliderRelay>("SPACING");
+    regionStartRelay = std::make_unique<juce::WebSliderRelay>("REGION_START");
+    regionEndRelay = std::make_unique<juce::WebSliderRelay>("REGION_END");
     polyphonyModeRelay = std::make_unique<juce::WebToggleButtonRelay>("POLYPHONY_MODE");
 
     // 2. Create WebView with relay options and native functions
@@ -20,6 +22,8 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
             .withOptionsFrom(*densityRelay)
             .withOptionsFrom(*pitchShiftRelay)
             .withOptionsFrom(*spacingRelay)
+            .withOptionsFrom(*regionStartRelay)
+            .withOptionsFrom(*regionEndRelay)
             .withOptionsFrom(*polyphonyModeRelay)
 
             // Native function for browse button
@@ -61,6 +65,12 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
 
     polyphonyModeAttachment = std::make_unique<juce::WebToggleButtonParameterAttachment>(
         *processorRef.parameters.getParameter("POLYPHONY_MODE"), *polyphonyModeRelay, nullptr);
+
+    regionStartAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
+        *processorRef.parameters.getParameter("REGION_START"), *regionStartRelay, nullptr);
+
+    regionEndAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
+        *processorRef.parameters.getParameter("REGION_END"), *regionEndRelay, nullptr);
 
     // Add WebView to editor
     addAndMakeVisible(*webView);

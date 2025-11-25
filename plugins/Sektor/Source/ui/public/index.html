@@ -465,6 +465,36 @@
         const nativeOpenBrowser = getNativeFunction("nativeOpenBrowser");
         const nativeFileDrop = getNativeFunction("nativeFileDrop");
 
+        // =========================================================
+        // REGION SELECTION STATE
+        // =========================================================
+        const regionStartState = getSliderState('REGION_START');
+        const regionEndState = getSliderState('REGION_END');
+
+        let regionStart = 0.0;
+        let regionEnd = 1.0;
+
+        // Initialize from C++ parameters
+        if (regionStartState && regionEndState) {
+            regionStart = regionStartState.getNormalisedValue();
+            regionEnd = regionEndState.getNormalisedValue();
+
+            // Listen for parameter changes from C++ (automation/preset load)
+            regionStartState.valueChangedEvent.addListener(() => {
+                regionStart = regionStartState.getNormalisedValue();
+                requestRender();
+            });
+
+            regionEndState.valueChangedEvent.addListener(() => {
+                regionEnd = regionEndState.getNormalisedValue();
+                requestRender();
+            });
+
+            console.log('[Sektor] Region selection initialized:', regionStart, '-', regionEnd);
+        } else {
+            console.error('[Sektor] Failed to get region state from JUCE');
+        }
+
         // ====================================================================
         // DEBUG PANEL SETUP
         // ====================================================================
@@ -795,11 +825,72 @@
         });
         resizeCanvas();
 
+        // =========================================================
+        // MOUSE INTERACTION FOR REGION SELECTION
+        // =========================================================
+        let isDragging = false;
+        let dragStartX = 0;
+
+        // Helper function to update region bounds
+        function updateRegion(start, end) {
+            // Enforce minimum region size (0.1%)
+            if (end - start < 0.001) end = start + 0.001;
+
+            regionStart = start;
+            regionEnd = end;
+
+            // Send to C++
+            if (regionStartState && regionEndState) {
+                regionStartState.setNormalisedValue(start);
+                regionEndState.setNormalisedValue(end);
+            }
+
+            requestRender();
+        }
+
+        // Helper function to request smooth rendering
+        function requestRender() {
+            window.requestAnimationFrame(() => {
+                drawWaveform(currentWaveformData);
+            });
+        }
+
+        // Mouse event handlers for canvas
+        if (canvas) {
+            canvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const normalizedX = Math.max(0, Math.min(1, x / rect.width));
+
+                dragStartX = normalizedX;
+                updateRegion(normalizedX, normalizedX);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const currentX = Math.max(0, Math.min(1, x / rect.width));
+
+                // Calculate start and end (direction-agnostic)
+                const start = Math.min(dragStartX, currentX);
+                const end = Math.max(dragStartX, currentX);
+
+                updateRegion(start, end);
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        }
+
         // Called by C++ via evaluateJavascript
         window.updateWaveform = (peaks) => {
             console.log('[JS] Received waveform data, points:', peaks.length);
             currentWaveformData = peaks;
-            drawWaveform(peaks);
+            requestRender();  // Use requestAnimationFrame for smoother rendering
         };
 
         function drawWaveform(peaks) {
@@ -809,15 +900,15 @@
             const height = canvas.height;
             const centerY = height / 2;
 
-            // Clear and style
+            // 1. Clear canvas
             ctx.clearRect(0, 0, width, height);
+
+            // 2. Draw waveform
             ctx.fillStyle = '#ff8c00'; // Sektor orange
-
-            const barWidth = width / peaks.length;
-
-            // Draw mirrored waveform (top and bottom)
             ctx.beginPath();
             ctx.moveTo(0, centerY);
+
+            const barWidth = width / peaks.length;
 
             // Top path
             for (let i = 0; i < peaks.length; i++) {
@@ -836,7 +927,44 @@
             ctx.closePath();
             ctx.fill();
 
-            // Center line
+            // 3. Draw region overlay (darken non-selected areas)
+            const startX = regionStart * width;
+            const endX = regionEnd * width;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+
+            // Left dimmed area
+            if (startX > 0) {
+                ctx.fillRect(0, 0, startX, height);
+            }
+
+            // Right dimmed area
+            if (endX < width) {
+                ctx.fillRect(endX, 0, width - endX, height);
+            }
+
+            // 4. Draw region boundary lines
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+
+            // Start line
+            ctx.beginPath();
+            ctx.moveTo(startX, 0);
+            ctx.lineTo(startX, height);
+            ctx.stroke();
+
+            // End line
+            ctx.beginPath();
+            ctx.moveTo(endX, 0);
+            ctx.lineTo(endX, height);
+            ctx.stroke();
+
+            // 5. Optional: Active region highlight
+            ctx.strokeStyle = 'rgba(255, 140, 0, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(startX, 0, endX - startX, height);
+
+            // 6. Center line
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
             ctx.lineWidth = 1;
             ctx.beginPath();

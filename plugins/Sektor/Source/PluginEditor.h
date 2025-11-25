@@ -29,6 +29,8 @@ private:
     std::unique_ptr<juce::WebSliderRelay> densityRelay;
     std::unique_ptr<juce::WebSliderRelay> pitchShiftRelay;
     std::unique_ptr<juce::WebSliderRelay> spacingRelay;
+    std::unique_ptr<juce::WebSliderRelay> regionStartRelay;
+    std::unique_ptr<juce::WebSliderRelay> regionEndRelay;
     std::unique_ptr<juce::WebToggleButtonRelay> polyphonyModeRelay;  // Pattern #19: Use getToggleState for bool
 
     // 2️⃣ WEBVIEW SECOND (depends on relays via withOptionsFrom)
@@ -39,6 +41,8 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> densityAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> pitchShiftAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> spacingAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> regionStartAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> regionEndAttachment;
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> polyphonyModeAttachment;
 
     // Helper for resource serving
