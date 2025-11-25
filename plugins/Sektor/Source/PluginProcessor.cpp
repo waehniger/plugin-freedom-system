@@ -572,6 +572,20 @@ void SektorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     float regionEnd = regionEndParam->load();
     bool polyMode = (polyphonyModeParam->load() >= 0.5f);
 
+    // Debug logging (every ~1 second to avoid spam)
+    static int frameCounter = 0;
+    frameCounter += buffer.getNumSamples();
+    if (frameCounter >= 44100)  // Log every ~1 second at 44.1kHz
+    {
+        frameCounter = 0;
+        std::cout << "[SEKTOR] GrainSize: " << grainSizeMs << "ms | "
+                  << "Density: " << density << " | "
+                  << "Pitch: " << pitchShiftSemitones << " semitones | "
+                  << "Spacing: " << spacing << " | "
+                  << "Region: " << regionStart << " - " << regionEnd << " | "
+                  << "PolyMode: " << (polyMode ? "POLY" : "MONO") << std::endl;
+    }
+
     // Process MIDI messages (note-on/note-off)
     for (const auto metadata : midiMessages)
     {
