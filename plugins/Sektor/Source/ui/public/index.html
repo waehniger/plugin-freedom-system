@@ -261,9 +261,135 @@
             font-weight: 600;
             color: #ffffff;
         }
+
+        /* ====================================================================
+           DEBUG PANEL (Collapsible)
+           ==================================================================== */
+
+        .debug-panel {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 350px;
+            max-height: 250px;
+            background: #1a1a1a;
+            border: 1px solid #555;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+        }
+
+        .debug-header {
+            background: #ff8c00;
+            color: #1a1a1a;
+            padding: 8px 12px;
+            font-weight: 700;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .debug-header:hover {
+            background: #ffa033;
+        }
+
+        .debug-toggle {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .debug-logs {
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.3;
+            color: #00ff00;
+            background: #0a0a0a;
+            padding: 8px;
+            display: none;
+        }
+
+        .debug-logs.open {
+            display: block;
+        }
+
+        .debug-logs::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .debug-logs::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .debug-logs::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 3px;
+        }
+
+        .debug-logs::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+
+        .debug-log-entry {
+            margin-bottom: 2px;
+            word-break: break-word;
+        }
+
+        .debug-log-entry.error {
+            color: #ff6b6b;
+        }
+
+        .debug-log-entry.warning {
+            color: #ffd93d;
+        }
+
+        .debug-log-entry.success {
+            color: #6bcf7f;
+        }
+
+        .debug-log-entry.info {
+            color: #4dabf7;
+        }
+
+        .debug-clear-btn {
+            position: absolute;
+            right: 30px;
+            top: 8px;
+            background: none;
+            border: none;
+            color: #1a1a1a;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 0;
+        }
+
+        .debug-clear-btn:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
+    <!-- DEBUG PANEL (Bottom-Right Corner) -->
+    <div class="debug-panel">
+        <div class="debug-header">
+            <span>🐛 DEBUG</span>
+            <button class="debug-clear-btn" id="debugClearBtn">CLEAR</button>
+            <div class="debug-toggle" id="debugToggle">▼</div>
+        </div>
+        <div class="debug-logs" id="debugLogs"></div>
+    </div>
+
     <div class="plugin-container">
         <!-- Header Section -->
         <div class="header">
@@ -335,7 +461,97 @@
 
     <!-- JavaScript Module -->
     <script type="module">
-        import { getSliderState, getToggleState } from './js/juce/index.js';
+        import { getNativeFunction, getSliderState, getToggleState } from './js/juce/index.js';
+
+        // Get native functions from C++
+        const nativeOpenBrowser = getNativeFunction("nativeOpenBrowser");
+        const nativeFileDrop = getNativeFunction("nativeFileDrop");
+
+        // ====================================================================
+        // DEBUG PANEL SETUP
+        // ====================================================================
+        const debugPanel = {
+            logs: [],
+            maxLogs: 100,
+
+            addLog(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = { timestamp, message, type };
+                this.logs.push(logEntry);
+
+                // Keep only last 100 logs
+                if (this.logs.length > this.maxLogs) {
+                    this.logs.shift();
+                }
+
+                this.render();
+            },
+
+            render() {
+                const debugLogs = document.getElementById('debugLogs');
+                if (!debugLogs) return;
+
+                debugLogs.innerHTML = this.logs
+                    .map(log => `<div class="debug-log-entry ${log.type}">[${log.timestamp}] ${log.message}</div>`)
+                    .join('');
+
+                // Auto-scroll to bottom
+                debugLogs.scrollTop = debugLogs.scrollHeight;
+            },
+
+            clear() {
+                this.logs = [];
+                this.render();
+            }
+        };
+
+        // Intercept console.log
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ');
+            debugPanel.addLog(message, 'info');
+        };
+
+        // Intercept console.error
+        const originalError = console.error;
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ');
+            debugPanel.addLog(message, 'error');
+        };
+
+        // Intercept console.warn
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ');
+            debugPanel.addLog(message, 'warning');
+        };
+
+        // Debug Panel UI Controls
+        const debugHeader = document.querySelector('.debug-header');
+        const debugLogs = document.getElementById('debugLogs');
+        const debugToggle = document.getElementById('debugToggle');
+        const debugClearBtn = document.getElementById('debugClearBtn');
+
+        if (debugHeader && debugLogs) {
+            debugHeader.addEventListener('click', () => {
+                debugLogs.classList.toggle('open');
+                debugToggle.textContent = debugLogs.classList.contains('open') ? '▲' : '▼';
+            });
+
+            debugClearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                debugPanel.clear();
+            });
+        }
 
         console.log('[Sektor Phase 3.2] Initializing parameter bindings...');
 
@@ -456,42 +672,78 @@
             console.error('[Sektor] Failed to bind polyphony toggle');
         }
 
-        // Drag-and-drop zone
+        // =========================================================
+        // FILE HANDLERS
+        // =========================================================
         const dropZone = document.getElementById('dropZone');
         const browseButton = document.getElementById('browseButton');
 
+        // 1. Browse button: Call native C++ function
+        if (browseButton) {
+            browseButton.addEventListener('click', () => {
+                console.log('[JS] Requesting native file browser...');
+                nativeOpenBrowser();  // Calls C++ to open native dialog
+            });
+        }
+
+        // 2. Drag & drop zone: Read file and send Base64 data
         if (dropZone) {
-            // Visual feedback for drag-and-drop
             dropZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
+                e.preventDefault();  // CRITICAL: Allows drop
+                e.stopPropagation();
                 dropZone.style.borderColor = '#ff8c00';
                 dropZone.style.background = '#333';
             });
 
-            dropZone.addEventListener('dragleave', () => {
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 dropZone.style.borderColor = '#666666';
                 dropZone.style.background = '#2a2a2a';
             });
 
             dropZone.addEventListener('drop', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 dropZone.style.borderColor = '#666666';
                 dropZone.style.background = '#2a2a2a';
-                console.log('[Sektor] Files dropped (handled by C++ FileDragAndDropTarget)');
+
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    console.log('[JS] File dropped:', file.name);
+
+                    // Read file in browser using FileReader
+                    const reader = new FileReader();
+
+                    reader.onload = function(event) {
+                        const base64String = event.target.result;  // Includes "data:audio/wav;base64,..." header
+                        console.log('[JS] Sending', base64String.length, 'bytes to C++');
+
+                        window.updateStatus("Uploading to engine...");
+
+                        // Send filename and Base64 data to C++
+                        nativeFileDrop(file.name, base64String).then(() => {
+                            console.log("[JS] Transfer complete");
+                        }).catch((error) => {
+                            console.error("[JS] Transfer failed:", error);
+                            window.updateStatus("Error: Upload failed");
+                        });
+                    };
+
+                    reader.onerror = function() {
+                        console.error("[JS] Failed to read file");
+                        window.updateStatus("Error: Could not read file");
+                    };
+
+                    // Read file as Base64 data URL
+                    reader.readAsDataURL(file);
+                }
             });
 
-            // For Phase 3.2, file browser button disabled (drag-and-drop only)
-            // Phase 3.3 will add native file browser integration
-            if (browseButton) {
-                browseButton.addEventListener('click', () => {
-                    console.log('[Sektor] File browser not yet implemented - use drag-and-drop');
-                    updateStatus('Use drag-and-drop to load samples');
-                });
-            }
-
+            // Drop zone click: Also trigger native file browser
             dropZone.addEventListener('click', () => {
-                console.log('[Sektor] File browser not yet implemented - use drag-and-drop');
-                updateStatus('Use drag-and-drop to load samples');
+                console.log('[JS] Drop zone clicked, opening native file dialog...');
+                nativeOpenBrowser();
             });
         }
 

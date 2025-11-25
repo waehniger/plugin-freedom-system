@@ -46,7 +46,9 @@ private:
 
     // Sample loading
     void loadSampleAsync(const juce::File& file);
+    void loadAudioFromBase64(const juce::String& base64Data, const juce::String& filename);
     void updateUIStatus(const juce::String& message);
+    void openFileBrowser();
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 

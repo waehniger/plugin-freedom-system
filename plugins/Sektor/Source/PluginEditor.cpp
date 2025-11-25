@@ -11,7 +11,7 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
     spacingRelay = std::make_unique<juce::WebSliderRelay>("SPACING");
     polyphonyModeRelay = std::make_unique<juce::WebToggleButtonRelay>("POLYPHONY_MODE");
 
-    // 2. Create WebView with relay options
+    // 2. Create WebView with relay options and native functions
     webView = std::make_unique<juce::WebBrowserComponent>(
         juce::WebBrowserComponent::Options{}
             .withNativeIntegrationEnabled()
@@ -21,6 +21,29 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
             .withOptionsFrom(*pitchShiftRelay)
             .withOptionsFrom(*spacingRelay)
             .withOptionsFrom(*polyphonyModeRelay)
+
+            // Native function for browse button
+            .withNativeFunction("nativeOpenBrowser", [this](const juce::Array<juce::var>& args, auto completion) {
+                juce::ignoreUnused(args);
+                openFileBrowser();
+                completion(true);
+            })
+
+            // Native function for drag & drop with Base64 data
+            .withNativeFunction("nativeFileDrop", [this](const juce::Array<juce::var>& args, auto completion) {
+                if (args.size() >= 2) {
+                    juce::String filename = args[0].toString();
+                    juce::String base64Data = args[1].toString();
+
+                    // Remove data URL header if present (e.g., "data:audio/wav;base64,")
+                    int commaPos = base64Data.indexOf(",");
+                    if (commaPos != -1)
+                        base64Data = base64Data.substring(commaPos + 1);
+
+                    loadAudioFromBase64(base64Data, filename);
+                }
+                completion(true);
+            })
     );
 
     // 3. Create attachments LAST (Pattern #12: 3 parameters required)
@@ -42,11 +65,15 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
     // Add WebView to editor
     addAndMakeVisible(*webView);
 
+    // Drag-and-drop is enabled by FileDragAndDropTarget interface
+    std::cout << "[SEKTOR INIT] Drag-and-drop interface registered (FileDragAndDropTarget)" << std::endl;
+
     // Set editor size (match mockup: 900×600)
     setSize(900, 600);
 
     // Navigate to UI
     webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+    std::cout << "[SEKTOR INIT] Editor initialized successfully" << std::endl;
 }
 
 SektorAudioProcessorEditor::~SektorAudioProcessorEditor()
@@ -109,11 +136,17 @@ SektorAudioProcessorEditor::getResource(const juce::String& url)
 // FileDragAndDropTarget implementation
 bool SektorAudioProcessorEditor::isInterestedInFileDrag(const juce::StringArray& files)
 {
+    std::cout << "[SEKTOR DRAG] isInterestedInFileDrag called with " << files.size() << " files" << std::endl;
+
     for (const auto& file : files) {
+        std::cout << "[SEKTOR DRAG] Checking file: " << file.toStdString() << std::endl;
         juce::File f(file);
-        if (f.hasFileExtension("wav;aif;aiff;mp3;flac"))
+        if (f.hasFileExtension("wav;aif;aiff;mp3;flac")) {
+            std::cout << "[SEKTOR DRAG] ✓ File is audio format, interested!" << std::endl;
             return true;
+        }
     }
+    std::cout << "[SEKTOR DRAG] ✗ No audio files found, not interested" << std::endl;
     return false;
 }
 
@@ -121,15 +154,24 @@ void SektorAudioProcessorEditor::filesDropped(const juce::StringArray& files, in
 {
     juce::ignoreUnused(x, y);
 
+    std::cout << "[SEKTOR DROP] Files dropped count: " << files.size() << std::endl;
+
     if (!files.isEmpty()) {
         juce::File droppedFile(files[0]);
+        std::cout << "[SEKTOR DROP] File path: " << droppedFile.getFullPathName().toStdString() << std::endl;
+        std::cout << "[SEKTOR DROP] File exists: " << (droppedFile.exists() ? "YES" : "NO") << std::endl;
         loadSampleAsync(droppedFile);
+    } else {
+        std::cout << "[SEKTOR DROP] ERROR: No files in array!" << std::endl;
     }
 }
 
 // Sample loading implementation
 void SektorAudioProcessorEditor::loadSampleAsync(const juce::File& file)
 {
+    // Debug log: file selection
+    std::cout << "[SEKTOR SAMPLE] Starting load of: " << file.getFullPathName().toStdString() << std::endl;
+
     // Show loading indicator
     updateUIStatus("Loading sample...");
 
@@ -138,13 +180,21 @@ void SektorAudioProcessorEditor::loadSampleAsync(const juce::File& file)
         juce::AudioFormatManager formatManager;
         formatManager.registerBasicFormats();
 
+        std::cout << "[SEKTOR SAMPLE] Creating reader for: " << file.getFileName().toStdString() << std::endl;
+
         auto reader = std::unique_ptr<juce::AudioFormatReader>(formatManager.createReaderFor(file));
         if (reader == nullptr) {
+            std::cout << "[SEKTOR SAMPLE] ERROR: Failed to create reader - invalid format" << std::endl;
             juce::MessageManager::callAsync([this]() {
                 updateUIStatus("Error: Invalid audio file");
             });
             return;
         }
+
+        std::cout << "[SEKTOR SAMPLE] Reader created successfully" << std::endl;
+        std::cout << "[SEKTOR SAMPLE]   Channels: " << reader->numChannels << std::endl;
+        std::cout << "[SEKTOR SAMPLE]   Length: " << reader->lengthInSamples << " samples" << std::endl;
+        std::cout << "[SEKTOR SAMPLE]   Sample rate: " << reader->sampleRate << " Hz" << std::endl;
 
         // Load sample into temporary buffer
         auto tempBuffer = std::make_unique<juce::AudioBuffer<float>>(
@@ -152,25 +202,114 @@ void SektorAudioProcessorEditor::loadSampleAsync(const juce::File& file)
             static_cast<int>(reader->lengthInSamples)
         );
 
+        std::cout << "[SEKTOR SAMPLE] Reading audio data..." << std::endl;
         reader->read(tempBuffer.get(), 0, static_cast<int>(reader->lengthInSamples), 0, true, true);
+        std::cout << "[SEKTOR SAMPLE] Audio data loaded successfully" << std::endl;
 
         // Atomic swap in processor (thread-safe)
         processorRef.setSampleBuffer(std::move(tempBuffer));
+        std::cout << "[SEKTOR SAMPLE] Sample buffer swapped in processor" << std::endl;
 
         // Update UI on message thread
         juce::MessageManager::callAsync([this, filename = file.getFileName()]() {
+            std::cout << "[SEKTOR SAMPLE] Updating UI with filename: " << filename.toStdString() << std::endl;
             updateUIStatus("Sample loaded: " + filename);
         });
 
     }).detach();
 }
 
+void SektorAudioProcessorEditor::loadAudioFromBase64(const juce::String& base64Data, const juce::String& filename)
+{
+    updateUIStatus("Processing dropped file...");
+
+    // Launch background thread (avoid blocking UI)
+    std::thread([this, base64Data, filename]() {
+        // 1. Decode Base64 to binary
+        juce::MemoryOutputStream outputStream;
+        if (juce::Base64::convertFromBase64(outputStream, base64Data))
+        {
+            auto dataBlock = outputStream.getMemoryBlock();
+
+            // 2. Create MemoryInputStream for AudioFormatReader
+            auto inputStream = std::make_unique<juce::MemoryInputStream>(dataBlock, false);
+
+            juce::AudioFormatManager formatManager;
+            formatManager.registerBasicFormats();
+
+            // 3. Create reader from memory stream
+            std::unique_ptr<juce::AudioFormatReader> reader(
+                formatManager.createReaderFor(std::move(inputStream))
+            );
+
+            if (reader) {
+                // 4. Load into audio buffer (same as existing loadSampleAsync)
+                auto tempBuffer = std::make_unique<juce::AudioBuffer<float>>(
+                    static_cast<int>(reader->numChannels),
+                    static_cast<int>(reader->lengthInSamples)
+                );
+
+                reader->read(tempBuffer.get(), 0, static_cast<int>(reader->lengthInSamples), 0, true, true);
+                processorRef.setSampleBuffer(std::move(tempBuffer));
+
+                // 5. Update UI on message thread
+                juce::MessageManager::callAsync([this, filename]() {
+                    updateUIStatus("Sample loaded: " + filename);
+                });
+            } else {
+                juce::MessageManager::callAsync([this]() {
+                    updateUIStatus("Error: Format not recognized");
+                });
+            }
+        } else {
+            juce::MessageManager::callAsync([this]() {
+                updateUIStatus("Error: Failed to decode audio data");
+            });
+        }
+    }).detach();
+}
+
 void SektorAudioProcessorEditor::updateUIStatus(const juce::String& message)
 {
+    std::cout << "[SEKTOR UI] Updating UI status: " << message.toStdString() << std::endl;
+
     // Send status update to JavaScript via evaluateJavascript
     if (webView) {
+        std::cout << "[SEKTOR UI] WebView exists, executing JavaScript..." << std::endl;
         juce::String escapedMessage = message.replace("'", "\\'");
-        juce::String jsCode = "if (window.updateStatus) { window.updateStatus('" + escapedMessage + "'); }";
+        juce::String jsCode = "if (window.updateStatus) { window.updateStatus('" + escapedMessage + "'); } else { console.error('updateStatus function not found'); }";
+        std::cout << "[SEKTOR UI] JS Code: " << jsCode.toStdString() << std::endl;
         webView->evaluateJavascript(jsCode);
+    } else {
+        std::cout << "[SEKTOR UI] ERROR: WebView is null!" << std::endl;
     }
 }
+
+void SektorAudioProcessorEditor::openFileBrowser()
+{
+    // IMPORTANT: FileChooser must run on message thread
+    // Native functions may be called from other threads, so force message thread
+    juce::MessageManager::callAsync([this]() {
+        std::cout << "[SEKTOR BROWSE] Opening file browser dialog..." << std::endl;
+
+        fileChooser = std::make_unique<juce::FileChooser>(
+            "Load audio sample",
+            juce::File::getSpecialLocation(juce::File::userMusicDirectory),
+            "*.wav;*.aif;*.aiff;*.mp3;*.flac"
+        );
+
+        fileChooser->launchAsync(
+            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this](const juce::FileChooser& chooser) {
+                auto selectedFile = chooser.getResult();
+                if (selectedFile.exists()) {
+                    std::cout << "[SEKTOR BROWSE] User selected: " << selectedFile.getFullPathName().toStdString() << std::endl;
+                    loadSampleAsync(selectedFile);
+                } else {
+                    std::cout << "[SEKTOR BROWSE] User cancelled file selection" << std::endl;
+                }
+            }
+        );
+    });
+}
+
