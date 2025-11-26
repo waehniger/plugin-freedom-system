@@ -29,8 +29,12 @@ private:
     std::unique_ptr<juce::WebSliderRelay> densityRelay;
     std::unique_ptr<juce::WebSliderRelay> pitchShiftRelay;
     std::unique_ptr<juce::WebSliderRelay> spacingRelay;
-    std::unique_ptr<juce::WebSliderRelay> regionStartRelay;
-    std::unique_ptr<juce::WebSliderRelay> regionEndRelay;
+    
+    // Multi-Region relays (5 regions × 3 parameters each)
+    std::vector<std::unique_ptr<juce::WebSliderRelay>> regionStartRelays;
+    std::vector<std::unique_ptr<juce::WebSliderRelay>> regionEndRelays;
+    std::vector<std::unique_ptr<juce::WebToggleButtonRelay>> regionActiveRelays;
+    
     std::unique_ptr<juce::WebToggleButtonRelay> polyphonyModeRelay;  // Pattern #19: Use getToggleState for bool
 
     // 2️⃣ WEBVIEW SECOND (depends on relays via withOptionsFrom)
@@ -41,8 +45,12 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> densityAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> pitchShiftAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> spacingAttachment;
-    std::unique_ptr<juce::WebSliderParameterAttachment> regionStartAttachment;
-    std::unique_ptr<juce::WebSliderParameterAttachment> regionEndAttachment;
+    
+    // Multi-Region attachments (5 regions × 3 parameters each)
+    std::vector<std::unique_ptr<juce::WebSliderParameterAttachment>> regionStartAttachments;
+    std::vector<std::unique_ptr<juce::WebSliderParameterAttachment>> regionEndAttachments;
+    std::vector<std::unique_ptr<juce::WebToggleButtonParameterAttachment>> regionActiveAttachments;
+    
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> polyphonyModeAttachment;
 
     // Helper for resource serving

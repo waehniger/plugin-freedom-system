@@ -230,6 +230,42 @@
             border-top: 1px solid #333;
         }
 
+        /* Region Tab Buttons */
+        .region-tabs {
+            display: flex;
+            gap: 4px;
+            margin-right: 20px;
+        }
+
+        .region-tab {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .region-tab.selected {
+            box-shadow: 0 0 0 2px #fff;
+        }
+
+        .region-tab.inactive {
+            opacity: 0.4;
+        }
+
+        /* Region colors */
+        .region-tab[data-region="0"] { background: #ff8c00; color: #1a1a1a; }
+        .region-tab[data-region="1"] { background: #4a9eff; color: #1a1a1a; }
+        .region-tab[data-region="2"] { background: #4aff7f; color: #1a1a1a; }
+        .region-tab[data-region="3"] { background: #c44aff; color: #1a1a1a; }
+        .region-tab[data-region="4"] { background: #4afff0; color: #1a1a1a; }
+
         .toggle-button {
             padding: 8px 16px;
             background: #404040;
@@ -442,8 +478,15 @@
                 </div>
             </div>
 
-            <!-- Second Row: Polyphony toggle and status info -->
+            <!-- Second Row: Region Tabs, Polyphony toggle and status info -->
             <div class="info-row">
+                <div class="region-tabs">
+                    <button class="region-tab selected" data-region="0">1</button>
+                    <button class="region-tab inactive" data-region="1">2</button>
+                    <button class="region-tab inactive" data-region="2">3</button>
+                    <button class="region-tab inactive" data-region="3">4</button>
+                    <button class="region-tab inactive" data-region="4">5</button>
+                </div>
                 <button class="toggle-button active" id="polyphonyToggle">Poly</button>
                 <div class="info-item">
                     <span>Sample:</span>
@@ -466,34 +509,119 @@
         const nativeFileDrop = getNativeFunction("nativeFileDrop");
 
         // =========================================================
-        // REGION SELECTION STATE
+        // MULTI-REGION STATE (5 regions)
         // =========================================================
-        const regionStartState = getSliderState('REGION_START');
-        const regionEndState = getSliderState('REGION_END');
+        const NUM_REGIONS = 5;
+        const REGION_COLORS = [
+            '#ff8c00',  // Region 0: Orange
+            '#4a9eff',  // Region 1: Blue
+            '#4aff7f',  // Region 2: Green
+            '#c44aff',  // Region 3: Purple
+            '#4afff0'   // Region 4: Cyan
+        ];
 
-        let regionStart = 0.0;
-        let regionEnd = 1.0;
+        // Region data structure
+        const regions = [];
+        let selectedRegionIndex = 0;
 
-        // Initialize from C++ parameters
-        if (regionStartState && regionEndState) {
-            regionStart = regionStartState.getNormalisedValue();
-            regionEnd = regionEndState.getNormalisedValue();
+        // Initialize all regions from C++ parameters
+        for (let i = 0; i < NUM_REGIONS; i++) {
+            const startState = getSliderState(`REGION_START_${i}`);
+            const endState = getSliderState(`REGION_END_${i}`);
+            const activeState = getToggleState(`REGION_ACTIVE_${i}`);
+
+            if (!startState || !endState || !activeState) {
+                console.error(`[Sektor] Failed to get region ${i} state from JUCE`);
+                continue;
+            }
+
+            const region = {
+                index: i,
+                startState: startState,
+                endState: endState,
+                activeState: activeState,
+                start: startState.getNormalisedValue(),
+                end: endState.getNormalisedValue(),
+                active: activeState.getValue(),
+                color: REGION_COLORS[i]
+            };
 
             // Listen for parameter changes from C++ (automation/preset load)
-            regionStartState.valueChangedEvent.addListener(() => {
-                regionStart = regionStartState.getNormalisedValue();
+            startState.valueChangedEvent.addListener(() => {
+                region.start = startState.getNormalisedValue();
                 requestRender();
             });
 
-            regionEndState.valueChangedEvent.addListener(() => {
-                regionEnd = regionEndState.getNormalisedValue();
+            endState.valueChangedEvent.addListener(() => {
+                region.end = endState.getNormalisedValue();
                 requestRender();
             });
 
-            console.log('[Sektor] Region selection initialized:', regionStart, '-', regionEnd);
-        } else {
-            console.error('[Sektor] Failed to get region state from JUCE');
+            activeState.valueChangedEvent.addListener(() => {
+                region.active = activeState.getValue();
+                updateRegionTabUI();
+                requestRender();
+            });
+
+            regions.push(region);
+            console.log(`[Sektor] Region ${i+1} initialized: ${region.start.toFixed(3)} - ${region.end.toFixed(3)}, active: ${region.active}`);
         }
+
+        // Update region tab UI to reflect active states
+        function updateRegionTabUI() {
+            const tabs = document.querySelectorAll('.region-tab');
+            tabs.forEach((tab, idx) => {
+                if (idx < regions.length) {
+                    const isActive = regions[idx].active;
+                    const isSelected = idx === selectedRegionIndex;
+                    tab.classList.toggle('inactive', !isActive);
+                    tab.classList.toggle('selected', isSelected);
+                }
+            });
+        }
+
+        // Initialize tab click handlers
+        const regionTabs = document.querySelectorAll('.region-tab');
+        regionTabs.forEach((tab) => {
+            const regionIndex = parseInt(tab.dataset.region);
+
+            // Left-click: Select region for editing
+            tab.addEventListener('click', (e) => {
+                if (e.shiftKey) {
+                    // Shift+Click: Toggle active state
+                    const region = regions[regionIndex];
+                    if (region) {
+                        region.active = !region.active;
+                        region.activeState.setValue(region.active);
+                        updateRegionTabUI();
+                        requestRender();
+                    }
+                } else {
+                    // Normal click: Select for editing
+                    selectedRegionIndex = regionIndex;
+                    updateRegionTabUI();
+                    requestRender();
+                    console.log(`[Sektor] Selected region ${regionIndex + 1} for editing`);
+                }
+            });
+
+            // Right-click: Toggle active state (alternative)
+            tab.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                const region = regions[regionIndex];
+                if (region) {
+                    region.active = !region.active;
+                    region.activeState.setValue(region.active);
+                    updateRegionTabUI();
+                    requestRender();
+                    console.log(`[Sektor] Region ${regionIndex + 1} active: ${region.active}`);
+                }
+            });
+        });
+
+        // Initialize UI
+        updateRegionTabUI();
+        console.log('[Sektor] Multi-region system initialized with', regions.length, 'regions');
 
         // ====================================================================
         // DEBUG PANEL SETUP
@@ -831,19 +959,20 @@
         let isDragging = false;
         let dragStartX = 0;
 
-        // Helper function to update region bounds
+        // Helper function to update selected region bounds
         function updateRegion(start, end) {
             // Enforce minimum region size (0.1%)
             if (end - start < 0.001) end = start + 0.001;
 
-            regionStart = start;
-            regionEnd = end;
+            const region = regions[selectedRegionIndex];
+            if (!region) return;
+
+            region.start = start;
+            region.end = end;
 
             // Send to C++
-            if (regionStartState && regionEndState) {
-                regionStartState.setNormalisedValue(start);
-                regionEndState.setNormalisedValue(end);
-            }
+            region.startState.setNormalisedValue(start);
+            region.endState.setNormalisedValue(end);
 
             requestRender();
         }
@@ -903,8 +1032,8 @@
             // 1. Clear canvas
             ctx.clearRect(0, 0, width, height);
 
-            // 2. Draw waveform
-            ctx.fillStyle = '#ff8c00'; // Sektor orange
+            // 2. Draw waveform (base color - gray when regions active)
+            ctx.fillStyle = '#555555';
             ctx.beginPath();
             ctx.moveTo(0, centerY);
 
@@ -927,44 +1056,87 @@
             ctx.closePath();
             ctx.fill();
 
-            // 3. Draw region overlay (darken non-selected areas)
-            const startX = regionStart * width;
-            const endX = regionEnd * width;
+            // 3. Draw ALL active regions (back to front, selected last)
+            const activeRegions = regions.filter(r => r.active);
+            const sortedRegions = [...activeRegions].sort((a, b) => {
+                // Selected region draws last (on top)
+                if (a.index === selectedRegionIndex) return 1;
+                if (b.index === selectedRegionIndex) return -1;
+                return a.index - b.index;
+            });
 
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            sortedRegions.forEach(region => {
+                const isSelected = region.index === selectedRegionIndex;
+                const startX = region.start * width;
+                const endX = region.end * width;
+                const regionWidth = endX - startX;
 
-            // Left dimmed area
-            if (startX > 0) {
-                ctx.fillRect(0, 0, startX, height);
-            }
+                // Draw colored region overlay
+                ctx.save();
 
-            // Right dimmed area
-            if (endX < width) {
-                ctx.fillRect(endX, 0, width - endX, height);
-            }
+                // Clip to region bounds
+                ctx.beginPath();
+                ctx.rect(startX, 0, regionWidth, height);
+                ctx.clip();
 
-            // 4. Draw region boundary lines
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
+                // Draw colored waveform in this region
+                const alpha = isSelected ? 1.0 : 0.5;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = region.color;
+                ctx.beginPath();
+                ctx.moveTo(0, centerY);
 
-            // Start line
-            ctx.beginPath();
-            ctx.moveTo(startX, 0);
-            ctx.lineTo(startX, height);
-            ctx.stroke();
+                // Top path
+                for (let i = 0; i < peaks.length; i++) {
+                    const x = i * barWidth;
+                    const amplitude = peaks[i] * (height * 0.9) / 2;
+                    ctx.lineTo(x, centerY - amplitude);
+                }
 
-            // End line
-            ctx.beginPath();
-            ctx.moveTo(endX, 0);
-            ctx.lineTo(endX, height);
-            ctx.stroke();
+                // Bottom path (reversed)
+                for (let i = peaks.length - 1; i >= 0; i--) {
+                    const x = i * barWidth;
+                    const amplitude = peaks[i] * (height * 0.9) / 2;
+                    ctx.lineTo(x, centerY + amplitude);
+                }
 
-            // 5. Optional: Active region highlight
-            ctx.strokeStyle = 'rgba(255, 140, 0, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(startX, 0, endX - startX, height);
+                ctx.closePath();
+                ctx.fill();
 
-            // 6. Center line
+                ctx.restore();
+
+                // Draw region boundary lines
+                ctx.strokeStyle = region.color;
+                ctx.lineWidth = isSelected ? 3 : 1;
+                ctx.globalAlpha = isSelected ? 1.0 : 0.6;
+
+                // Start line
+                ctx.beginPath();
+                ctx.moveTo(startX, 0);
+                ctx.lineTo(startX, height);
+                ctx.stroke();
+
+                // End line
+                ctx.beginPath();
+                ctx.moveTo(endX, 0);
+                ctx.lineTo(endX, height);
+                ctx.stroke();
+
+                ctx.globalAlpha = 1.0;
+            });
+
+            // 4. Draw region index labels
+            sortedRegions.forEach(region => {
+                const isSelected = region.index === selectedRegionIndex;
+                const startX = region.start * width;
+
+                ctx.font = `bold ${isSelected ? 14 : 11}px sans-serif`;
+                ctx.fillStyle = region.color;
+                ctx.textBaseline = 'top';
+                ctx.fillText(`${region.index + 1}`, startX + 5, 5);
+            });
+
+            // 5. Center line
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
             ctx.lineWidth = 1;
             ctx.beginPath();

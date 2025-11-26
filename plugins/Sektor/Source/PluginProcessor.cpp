@@ -127,11 +127,42 @@ void SektorAudioProcessor::Voice::processEnvelope()
     }
 }
 
-void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing, float regionStart, float regionEnd)
+const SektorAudioProcessor::RegionData& SektorAudioProcessor::Voice::getRandomActiveRegion(
+    const std::vector<RegionData>& regions)
+{
+    // Collect indices of all active regions
+    std::vector<int> activeIndices;
+    activeIndices.reserve(regions.size());
+
+    for (size_t i = 0; i < regions.size(); ++i)
+    {
+        if (regions[i].active)
+        {
+            activeIndices.push_back(static_cast<int>(i));
+        }
+    }
+
+    // Fallback to region 0 if none active
+    if (activeIndices.empty())
+    {
+        return regions[0];
+    }
+
+    // Select random active region
+    int selectedIndex = activeIndices[rng.nextInt(static_cast<int>(activeIndices.size()))];
+    return regions[selectedIndex];
+}
+
+void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing, const std::vector<RegionData>& regions)
 {
     // Safety check: Ensure buffer is loaded
     if (sourceBuffer == nullptr || sourceBuffer->getNumSamples() == 0)
         return;
+
+    // Select random active region for this grain
+    const auto& targetRegion = getRandomActiveRegion(regions);
+    float regionStart = targetRegion.start;
+    float regionEnd = targetRegion.end;
 
     // Find free grain slot (or kill oldest)
     ActiveGrain* targetGrain = nullptr;
@@ -229,7 +260,7 @@ float SektorAudioProcessor::Voice::readFractionalSample(float position)
 
 void SektorAudioProcessor::Voice::processBlock(juce::AudioBuffer<float>& output, int numSamples,
                                                 float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
-                                                float regionStart, float regionEnd)
+                                                const std::vector<RegionData>& regions)
 {
     // Safety check: Ensure buffer is loaded
     if (state == IDLE || sourceBuffer == nullptr || sourceBuffer->getNumSamples() == 0)
@@ -261,7 +292,7 @@ void SektorAudioProcessor::Voice::processBlock(juce::AudioBuffer<float>& output,
         // Only trigger new grains if still playing (not in release)
         if (state == PLAYING && samplesUntilNextGrain <= 0)
         {
-            generateGrain(grainSamples, spacing, regionStart, regionEnd);
+            generateGrain(grainSamples, spacing, regions);
             samplesUntilNextGrain = grainInterval;
         }
 
@@ -436,14 +467,14 @@ void SektorAudioProcessor::VoiceManager::handleAllNotesOff()
 
 void SektorAudioProcessor::VoiceManager::processBlock(juce::AudioBuffer<float>& output, int numSamples,
                                                        float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
-                                                       float regionStart, float regionEnd)
+                                                       const std::vector<RegionData>& regions)
 {
     // Process all active voices
     for (auto& voice : voices)
     {
         if (voice.isActive())
         {
-            voice.processBlock(output, numSamples, grainSizeMs, density, pitchShiftSemitones, spacing, regionStart, regionEnd);
+            voice.processBlock(output, numSamples, grainSizeMs, density, pitchShiftSemitones, spacing, regions);
         }
     }
 
@@ -513,21 +544,34 @@ juce::AudioProcessorValueTreeState::ParameterLayout SektorAudioProcessor::create
         1.0f
     ));
 
-    // REGION_START - Playback region start (0.0-1.0 normalized)
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID { "REGION_START", 1 },
-        "Region Start",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
-        0.0f
-    ));
+    // MULTI-REGION PARAMETERS (5 regions with start, end, active each)
+    for (int i = 0; i < MaxRegions; ++i)
+    {
+        juce::String idSuffix = "_" + juce::String(i);
 
-    // REGION_END - Playback region end (0.0-1.0 normalized)
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID { "REGION_END", 1 },
-        "Region End",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
-        1.0f
-    ));
+        // Region Start Point (0.0-1.0 normalized)
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID { "REGION_START" + idSuffix, 1 },
+            "Region Start " + juce::String(i + 1),
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
+            0.0f
+        ));
+
+        // Region End Point (0.0-1.0 normalized)
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID { "REGION_END" + idSuffix, 1 },
+            "Region End " + juce::String(i + 1),
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
+            1.0f
+        ));
+
+        // Region Active Toggle (Region 0 is default ON, rest OFF)
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID { "REGION_ACTIVE" + idSuffix, 1 },
+            "Region Active " + juce::String(i + 1),
+            (i == 0)  // True for index 0, false for rest
+        ));
+    }
 
     // POLYPHONY_MODE - Mono (false) or Poly (true)
     layout.add(std::make_unique<juce::AudioParameterBool>(
@@ -576,17 +620,25 @@ void SektorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     auto* densityParam = parameters.getRawParameterValue("DENSITY");
     auto* pitchShiftParam = parameters.getRawParameterValue("PITCH_SHIFT");
     auto* spacingParam = parameters.getRawParameterValue("SPACING");
-    auto* regionStartParam = parameters.getRawParameterValue("REGION_START");
-    auto* regionEndParam = parameters.getRawParameterValue("REGION_END");
     auto* polyphonyModeParam = parameters.getRawParameterValue("POLYPHONY_MODE");
 
     float grainSizeMs = grainSizeParam->load();
     float density = densityParam->load();
     float pitchShiftSemitones = pitchShiftParam->load();
     float spacing = spacingParam->load();
-    float regionStart = regionStartParam->load();
-    float regionEnd = regionEndParam->load();
     bool polyMode = (polyphonyModeParam->load() >= 0.5f);
+
+    // Collect all region data (5 regions)
+    std::vector<RegionData> currentRegions(MaxRegions);
+
+    for (int i = 0; i < MaxRegions; ++i)
+    {
+        juce::String idSuffix = "_" + juce::String(i);
+
+        currentRegions[i].start = parameters.getRawParameterValue("REGION_START" + idSuffix)->load();
+        currentRegions[i].end = parameters.getRawParameterValue("REGION_END" + idSuffix)->load();
+        currentRegions[i].active = parameters.getRawParameterValue("REGION_ACTIVE" + idSuffix)->load() > 0.5f;
+    }
 
     // Debug logging (every ~1 second to avoid spam)
     static int frameCounter = 0;
@@ -594,11 +646,19 @@ void SektorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     if (frameCounter >= 44100)  // Log every ~1 second at 44.1kHz
     {
         frameCounter = 0;
+        
+        // Count active regions for debug output
+        int activeCount = 0;
+        for (const auto& region : currentRegions)
+        {
+            if (region.active) activeCount++;
+        }
+        
         std::cout << "[SEKTOR] GrainSize: " << grainSizeMs << "ms | "
                   << "Density: " << density << " | "
                   << "Pitch: " << pitchShiftSemitones << " semitones | "
                   << "Spacing: " << spacing << " | "
-                  << "Region: " << regionStart << " - " << regionEnd << " | "
+                  << "Active Regions: " << activeCount << "/" << MaxRegions << " | "
                   << "PolyMode: " << (polyMode ? "POLY" : "MONO") << std::endl;
     }
 
@@ -625,8 +685,8 @@ void SektorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         }
     }
 
-    // Process all active voices
-    voiceManager.processBlock(buffer, buffer.getNumSamples(), grainSizeMs, density, pitchShiftSemitones, spacing, regionStart, regionEnd);
+    // Process all active voices with multi-region support
+    voiceManager.processBlock(buffer, buffer.getNumSamples(), grainSizeMs, density, pitchShiftSemitones, spacing, currentRegions);
 }
 
 juce::AudioProcessorEditor* SektorAudioProcessor::createEditor()

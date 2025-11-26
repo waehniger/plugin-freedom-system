@@ -9,23 +9,39 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
     densityRelay = std::make_unique<juce::WebSliderRelay>("DENSITY");
     pitchShiftRelay = std::make_unique<juce::WebSliderRelay>("PITCH_SHIFT");
     spacingRelay = std::make_unique<juce::WebSliderRelay>("SPACING");
-    regionStartRelay = std::make_unique<juce::WebSliderRelay>("REGION_START");
-    regionEndRelay = std::make_unique<juce::WebSliderRelay>("REGION_END");
     polyphonyModeRelay = std::make_unique<juce::WebToggleButtonRelay>("POLYPHONY_MODE");
 
-    // 2. Create WebView with relay options and native functions
-    webView = std::make_unique<juce::WebBrowserComponent>(
-        juce::WebBrowserComponent::Options{}
-            .withNativeIntegrationEnabled()
-            .withResourceProvider([this](const auto& url) { return getResource(url); })
-            .withOptionsFrom(*grainSizeRelay)
-            .withOptionsFrom(*densityRelay)
-            .withOptionsFrom(*pitchShiftRelay)
-            .withOptionsFrom(*spacingRelay)
-            .withOptionsFrom(*regionStartRelay)
-            .withOptionsFrom(*regionEndRelay)
-            .withOptionsFrom(*polyphonyModeRelay)
+    // Multi-Region relays (5 regions × 3 parameters each)
+    for (int i = 0; i < SektorAudioProcessor::MaxRegions; ++i)
+    {
+        juce::String idSuffix = "_" + juce::String(i);
+        regionStartRelays.push_back(std::make_unique<juce::WebSliderRelay>("REGION_START" + idSuffix));
+        regionEndRelays.push_back(std::make_unique<juce::WebSliderRelay>("REGION_END" + idSuffix));
+        regionActiveRelays.push_back(std::make_unique<juce::WebToggleButtonRelay>("REGION_ACTIVE" + idSuffix));
+    }
 
+    // 2. Create WebView with relay options and native functions
+    auto webViewOptions = juce::WebBrowserComponent::Options{}
+        .withNativeIntegrationEnabled()
+        .withResourceProvider([this](const auto& url) { return getResource(url); })
+        .withOptionsFrom(*grainSizeRelay)
+        .withOptionsFrom(*densityRelay)
+        .withOptionsFrom(*pitchShiftRelay)
+        .withOptionsFrom(*spacingRelay)
+        .withOptionsFrom(*polyphonyModeRelay);
+
+    // Add all region relay options
+    for (int i = 0; i < SektorAudioProcessor::MaxRegions; ++i)
+    {
+        webViewOptions = webViewOptions
+            .withOptionsFrom(*regionStartRelays[i])
+            .withOptionsFrom(*regionEndRelays[i])
+            .withOptionsFrom(*regionActiveRelays[i]);
+    }
+
+    // Add native functions
+    webView = std::make_unique<juce::WebBrowserComponent>(
+        webViewOptions
             // Native function for browse button
             .withNativeFunction("nativeOpenBrowser", [this](const juce::Array<juce::var>& args, auto completion) {
                 juce::ignoreUnused(args);
@@ -66,11 +82,20 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
     polyphonyModeAttachment = std::make_unique<juce::WebToggleButtonParameterAttachment>(
         *processorRef.parameters.getParameter("POLYPHONY_MODE"), *polyphonyModeRelay, nullptr);
 
-    regionStartAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
-        *processorRef.parameters.getParameter("REGION_START"), *regionStartRelay, nullptr);
+    // Multi-Region attachments (5 regions × 3 parameters each)
+    for (int i = 0; i < SektorAudioProcessor::MaxRegions; ++i)
+    {
+        juce::String idSuffix = "_" + juce::String(i);
 
-    regionEndAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
-        *processorRef.parameters.getParameter("REGION_END"), *regionEndRelay, nullptr);
+        regionStartAttachments.push_back(std::make_unique<juce::WebSliderParameterAttachment>(
+            *processorRef.parameters.getParameter("REGION_START" + idSuffix), *regionStartRelays[i], nullptr));
+
+        regionEndAttachments.push_back(std::make_unique<juce::WebSliderParameterAttachment>(
+            *processorRef.parameters.getParameter("REGION_END" + idSuffix), *regionEndRelays[i], nullptr));
+
+        regionActiveAttachments.push_back(std::make_unique<juce::WebToggleButtonParameterAttachment>(
+            *processorRef.parameters.getParameter("REGION_ACTIVE" + idSuffix), *regionActiveRelays[i], nullptr));
+    }
 
     // Add WebView to editor
     addAndMakeVisible(*webView);
@@ -83,7 +108,7 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
 
     // Navigate to UI
     webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
-    std::cout << "[SEKTOR INIT] Editor initialized successfully" << std::endl;
+    std::cout << "[SEKTOR INIT] Editor initialized successfully with " << SektorAudioProcessor::MaxRegions << " regions" << std::endl;
 }
 
 SektorAudioProcessorEditor::~SektorAudioProcessorEditor()

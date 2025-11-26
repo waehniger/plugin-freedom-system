@@ -7,6 +7,16 @@
 class SektorAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Multi-Region Constants
+    static constexpr int MaxRegions = 5;
+
+    // Region data structure for DSP
+    struct RegionData {
+        float start = 0.0f;
+        float end = 1.0f;
+        bool active = false;
+    };
+
     SektorAudioProcessor();
     ~SektorAudioProcessor() override;
 
@@ -71,7 +81,7 @@ private:
         void triggerQuickRelease();
         void processBlock(juce::AudioBuffer<float>& output, int numSamples,
                          float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
-                         float regionStart, float regionEnd);
+                         const std::vector<RegionData>& regions);
 
         bool isPlaying() const { return state == PLAYING; }
         bool isActive() const { return state != IDLE; }
@@ -81,9 +91,12 @@ private:
     private:
         void generateTestSample(double sampleRate);
         void generateHannWindow(int grainSize);
-        void generateGrain(int grainSamples, float spacing, float regionStart, float regionEnd);
+        void generateGrain(int grainSamples, float spacing, const std::vector<RegionData>& regions);
+        const RegionData& getRandomActiveRegion(const std::vector<RegionData>& regions);
         float readFractionalSample(float position);
         void processEnvelope();
+
+        juce::Random rng;  // Random generator for region selection
 
         const juce::AudioBuffer<float>* sourceBuffer = nullptr;  // Pointer to shared sample buffer
         std::vector<float> hannWindow;          // Pre-calculated Hann window
@@ -119,7 +132,7 @@ private:
         void handleAllNotesOff();
         void processBlock(juce::AudioBuffer<float>& output, int numSamples,
                          float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
-                         float regionStart, float regionEnd);
+                         const std::vector<RegionData>& regions);
 
     private:
         Voice* allocateVoice(int noteNumber, bool monoMode);
