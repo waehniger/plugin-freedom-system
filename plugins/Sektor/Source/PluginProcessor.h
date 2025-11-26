@@ -64,6 +64,7 @@ private:
         Voice();
 
         void prepare(double sampleRate, int maxGrainSize);
+        void setSourceBuffer(const juce::AudioBuffer<float>* newBuffer);
         void startNote(int midiNote, float velocity);
         void stopNote();
         void retrigger(int midiNote, float velocity);
@@ -84,7 +85,7 @@ private:
         float readFractionalSample(float position);
         void processEnvelope();
 
-        juce::AudioBuffer<float> sampleBuffer;  // Test sample (sine wave)
+        const juce::AudioBuffer<float>* sourceBuffer = nullptr;  // Pointer to shared sample buffer
         std::vector<float> hannWindow;          // Pre-calculated Hann window
 
         static constexpr int MAX_ACTIVE_GRAINS = 8;  // CPU protection
@@ -112,6 +113,7 @@ private:
         VoiceManager();
 
         void prepare(double sampleRate, int maxGrainSize);
+        void setSharedBuffer(const juce::AudioBuffer<float>* newBuffer);
         void handleNoteOn(int noteNumber, float velocity, bool monoMode);
         void handleNoteOff(int noteNumber, bool monoMode);
         void handleAllNotesOff();

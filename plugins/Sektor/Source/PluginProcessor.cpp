@@ -25,30 +25,25 @@ void SektorAudioProcessor::Voice::prepare(double sampleRate, int maxGrainSize)
     currentSampleRate = sampleRate;
     maxGrainSamples = maxGrainSize;
 
-    // Generate test sample (1 second of 440Hz sine wave)
-    generateTestSample(sampleRate);
+    // NOTE: Test sample generation removed - voices now use shared buffer via setSourceBuffer()
+    // generateTestSample(sampleRate);  // Kept for reference, not called automatically
 
     // Pre-generate Hann window for common grain sizes
     // We'll regenerate dynamically in processBlock for now
     hannWindow.resize(maxGrainSize);
 }
 
+void SektorAudioProcessor::Voice::setSourceBuffer(const juce::AudioBuffer<float>* newBuffer)
+{
+    sourceBuffer = newBuffer;
+}
+
 void SektorAudioProcessor::Voice::generateTestSample(double sampleRate)
 {
-    // Create 1 second of 440Hz sine wave for testing
-    int sampleLength = static_cast<int>(sampleRate);
-    sampleBuffer.setSize(1, sampleLength);  // Mono test sample
-
-    float* samples = sampleBuffer.getWritePointer(0);
-    float frequency = 440.0f;  // A4
-    float phase = 0.0f;
-    float phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / static_cast<float>(sampleRate);
-
-    for (int i = 0; i < sampleLength; ++i)
-    {
-        samples[i] = std::sin(phase) * 0.5f;  // 50% amplitude to prevent clipping
-        phase += phaseIncrement;
-    }
+    // NOTE: This method is deprecated and no longer functional
+    // Voices now use shared buffer via setSourceBuffer() instead of owning their own buffer
+    // Kept for reference only
+    juce::ignoreUnused(sampleRate);
 }
 
 void SektorAudioProcessor::Voice::generateHannWindow(int grainSize)
@@ -134,6 +129,10 @@ void SektorAudioProcessor::Voice::processEnvelope()
 
 void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing, float regionStart, float regionEnd)
 {
+    // Safety check: Ensure buffer is loaded
+    if (sourceBuffer == nullptr || sourceBuffer->getNumSamples() == 0)
+        return;
+
     // Find free grain slot (or kill oldest)
     ActiveGrain* targetGrain = nullptr;
 
@@ -154,7 +153,7 @@ void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing,
     }
 
     // Calculate region bounds in samples
-    int sampleLength = sampleBuffer.getNumSamples();
+    int sampleLength = sourceBuffer->getNumSamples();
     float regionStartSamples = regionStart * static_cast<float>(sampleLength);
     float regionEndSamples = regionEnd * static_cast<float>(sampleLength);
     float regionLength = regionEndSamples - regionStartSamples;
@@ -197,8 +196,15 @@ void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing,
 
 float SektorAudioProcessor::Voice::readFractionalSample(float position)
 {
-    int sampleLength = sampleBuffer.getNumSamples();
-    const float* sampleData = sampleBuffer.getReadPointer(0);
+    // Safety check: Ensure buffer is loaded
+    if (sourceBuffer == nullptr)
+        return 0.0f;
+
+    int sampleLength = sourceBuffer->getNumSamples();
+    if (sampleLength == 0)
+        return 0.0f;
+
+    const float* sampleData = sourceBuffer->getReadPointer(0);
 
     // Wrap position
     while (position >= static_cast<float>(sampleLength))
@@ -225,7 +231,8 @@ void SektorAudioProcessor::Voice::processBlock(juce::AudioBuffer<float>& output,
                                                 float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
                                                 float regionStart, float regionEnd)
 {
-    if (state == IDLE || sampleBuffer.getNumSamples() == 0)
+    // Safety check: Ensure buffer is loaded
+    if (state == IDLE || sourceBuffer == nullptr || sourceBuffer->getNumSamples() == 0)
         return;
 
     // Calculate grain size in samples
@@ -317,6 +324,15 @@ void SektorAudioProcessor::VoiceManager::prepare(double sampleRate, int maxGrain
     for (auto& voice : voices)
     {
         voice.prepare(sampleRate, maxGrainSize);
+    }
+}
+
+void SektorAudioProcessor::VoiceManager::setSharedBuffer(const juce::AudioBuffer<float>* newBuffer)
+{
+    // Propagate shared buffer pointer to all voices
+    for (auto& voice : voices)
+    {
+        voice.setSourceBuffer(newBuffer);
     }
 }
 
@@ -636,8 +652,25 @@ void SektorAudioProcessor::setStateInformation(const void* data, int sizeInBytes
 // Sample buffer management (thread-safe)
 void SektorAudioProcessor::setSampleBuffer(std::unique_ptr<juce::AudioBuffer<float>> newBuffer)
 {
+    // Get raw pointer before moving ownership
+    auto* rawPtr = newBuffer.get();
+
     // Atomic swap - audio thread will see new buffer on next processBlock
     auto oldBuffer = currentSampleBuffer.exchange(newBuffer.release());
+
+    // Propagate buffer pointer to all voices
+    voiceManager.setSharedBuffer(rawPtr);
+
+    // Debug logging
+    if (rawPtr != nullptr)
+    {
+        std::cout << "[PROCESSOR] New buffer set. Samples: " << rawPtr->getNumSamples()
+                  << " | Channels: " << rawPtr->getNumChannels() << std::endl;
+    }
+    else
+    {
+        std::cout << "[PROCESSOR] Buffer cleared (nullptr)" << std::endl;
+    }
 
     // Delete old buffer on message thread (safe disposal)
     juce::MessageManager::callAsync([oldBuffer]() {
