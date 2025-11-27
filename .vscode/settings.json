@@ -1,3 +1,9 @@
 {
-    "explorer.sortOrder": "modified"
+    "explorer.sortOrder": "modified",
+    "files.associations": {
+        "vector": "cpp",
+        "array": "cpp",
+        "string": "cpp",
+        "string_view": "cpp"
+    }
 }

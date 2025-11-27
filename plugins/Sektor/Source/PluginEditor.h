@@ -4,7 +4,8 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
 class SektorAudioProcessorEditor : public juce::AudioProcessorEditor,
-                                    public juce::FileDragAndDropTarget
+                                    public juce::FileDragAndDropTarget,
+                                    public juce::Timer
 {
 public:
     explicit SektorAudioProcessorEditor(SektorAudioProcessor&);
@@ -16,6 +17,9 @@ public:
     // FileDragAndDropTarget interface
     bool isInterestedInFileDrag(const juce::StringArray& files) override;
     void filesDropped(const juce::StringArray& files, int x, int y) override;
+
+    // Timer callback for playhead visualization
+    void timerCallback() override;
 
 private:
     SektorAudioProcessor& processorRef;
@@ -64,6 +68,9 @@ private:
 
     // Waveform visualization
     void sendWaveformDataToJS(const juce::AudioBuffer<float>& buffer);
+
+    // Playhead visualization
+    void sendPlayheadDataToJS();
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 

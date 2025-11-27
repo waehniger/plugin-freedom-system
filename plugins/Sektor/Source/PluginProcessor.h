@@ -47,6 +47,14 @@ public:
     // Sample buffer management (thread-safe)
     void setSampleBuffer(std::unique_ptr<juce::AudioBuffer<float>> newBuffer);
 
+    // Playhead visualization data
+    struct PlayheadPosition {
+        float normalizedPosition;  // 0.0-1.0 position in sample
+        int regionIndex;            // Which region this voice is playing
+        bool isActive;
+    };
+    std::vector<PlayheadPosition> getPlayheadPositions() const;
+
 private:
     // Parameter layout creation
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -87,6 +95,9 @@ private:
         bool isActive() const { return state != IDLE; }
         int getNoteNumber() const { return midiNoteNumber; }
         int getAge() const { return voiceAge; }
+        float getGrainPhase() const { return grainPhase; }
+        float getAbsoluteGrainPosition() const { return absoluteGrainPosition; }
+        int getCurrentRegionIndex() const { return currentRegionIndex; }
 
     private:
         void generateTestSample(double sampleRate);
@@ -104,7 +115,8 @@ private:
         static constexpr int MAX_ACTIVE_GRAINS = 8;  // CPU protection
         std::vector<ActiveGrain> activeGrains;
 
-        float grainPhase;          // Current sample position in source for grain extraction
+        float grainPhase;          // Current relative position within region for grain extraction
+        float absoluteGrainPosition; // Absolute sample position for playhead visualization
         int samplesUntilNextGrain; // Sample counter until next grain trigger
         State state;
         int midiNoteNumber;
@@ -112,6 +124,7 @@ private:
         float envelopeLevel;       // 0.0-1.0 envelope amplitude
         float releaseRate;         // Envelope release rate (per sample)
         int voiceAge;              // Age in samples (for voice stealing)
+        int currentRegionIndex;    // Which region this voice is currently playing from
 
         double currentSampleRate;
         int maxGrainSamples;
@@ -133,6 +146,8 @@ private:
         void processBlock(juce::AudioBuffer<float>& output, int numSamples,
                          float grainSizeMs, float density, float pitchShiftSemitones, float spacing,
                          const std::vector<RegionData>& regions);
+
+        const std::vector<Voice>& getVoices() const { return voices; }
 
     private:
         Voice* allocateVoice(int noteNumber, bool monoMode);

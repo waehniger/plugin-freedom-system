@@ -1,8 +1,8 @@
 # Sektor Notes
 
 ## Status
-- **Current Status:** 🚧 Stage 0 (Research & Planning)
-- **Version:** 1.0.0 (planned)
+- **Current Status:** ✅ Working
+- **Version:** 1.1.0
 - **Type:** Instrument (Granular Sampler)
 - **Complexity Score:** 3.8 (Complex - phased implementation)
 
@@ -10,10 +10,12 @@
 
 - **2025-11-18 (Ideation):** Creative brief created - minimalistic granular sampler concept
 - **2025-11-18 (Stage 0):** Research & Planning complete - Architecture and plan documented (Complexity 3.8)
+- **2025-11-18 (v1.0.0):** Initial release - Multi-region granular sampler with WebView UI
+- **2025-11-27 (v1.1.0):** Added playhead visualization - Real-time grain extraction position indicators
 
 ## Known Issues
 
-None (not yet implemented)
+None
 
 ## Additional Notes
 

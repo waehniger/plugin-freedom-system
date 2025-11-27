@@ -109,10 +109,14 @@ SektorAudioProcessorEditor::SektorAudioProcessorEditor(SektorAudioProcessor& p)
     // Navigate to UI
     webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     std::cout << "[SEKTOR INIT] Editor initialized successfully with " << SektorAudioProcessor::MaxRegions << " regions" << std::endl;
+
+    // Start playhead visualization timer (30 FPS for smooth animation)
+    startTimer(33);  // ~30 Hz
 }
 
 SektorAudioProcessorEditor::~SektorAudioProcessorEditor()
 {
+    stopTimer();
     // Destructor handles cleanup in reverse order (automatic with unique_ptr)
 }
 
@@ -391,5 +395,38 @@ void SektorAudioProcessorEditor::sendWaveformDataToJS(const juce::AudioBuffer<fl
             webView->evaluateJavascript("if (window.updateWaveform) window.updateWaveform(" + jsonStr + ");");
         }
     });
+}
+
+void SektorAudioProcessorEditor::timerCallback()
+{
+    // Send playhead positions to JavaScript
+    sendPlayheadDataToJS();
+}
+
+void SektorAudioProcessorEditor::sendPlayheadDataToJS()
+{
+    // Get playhead positions from processor
+    auto positions = processorRef.getPlayheadPositions();
+
+    // Build JSON array: [{pos: 0.5, region: 0}, {pos: 0.7, region: 1}, ...]
+    juce::StringArray jsonObjects;
+    for (const auto& pos : positions)
+    {
+        if (pos.isActive)
+        {
+            jsonObjects.add(
+                "{\"pos\":" + juce::String(pos.normalizedPosition, 3) +
+                ",\"region\":" + juce::String(pos.regionIndex) + "}"
+            );
+        }
+    }
+
+    juce::String jsonStr = "[" + jsonObjects.joinIntoString(",") + "]";
+
+    // Send to JS (must happen on message thread - already on it since timer runs on message thread)
+    if (webView)
+    {
+        webView->evaluateJavascript("if (window.updatePlayheads) window.updatePlayheads(" + jsonStr + ");");
+    }
 }
 

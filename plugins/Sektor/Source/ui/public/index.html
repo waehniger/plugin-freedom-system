@@ -570,10 +570,12 @@
         // Update region tab UI to reflect active states
         function updateRegionTabUI() {
             const tabs = document.querySelectorAll('.region-tab');
-            tabs.forEach((tab, idx) => {
-                if (idx < regions.length) {
-                    const isActive = regions[idx].active;
-                    const isSelected = idx === selectedRegionIndex;
+            tabs.forEach((tab) => {
+                const regionIndex = parseInt(tab.dataset.region);
+                const region = regions.find(r => r.index === regionIndex);
+                if (region) {
+                    const isActive = region.active;
+                    const isSelected = regionIndex === selectedRegionIndex;
                     tab.classList.toggle('inactive', !isActive);
                     tab.classList.toggle('selected', isSelected);
                 }
@@ -587,14 +589,17 @@
 
             // Left-click: Select region for editing
             tab.addEventListener('click', (e) => {
+                // Find region by index property (not array position)
+                const region = regions.find(r => r.index === regionIndex);
+                
                 if (e.shiftKey) {
                     // Shift+Click: Toggle active state
-                    const region = regions[regionIndex];
                     if (region) {
                         region.active = !region.active;
                         region.activeState.setValue(region.active);
                         updateRegionTabUI();
                         requestRender();
+                        console.log(`[Sektor] Region ${regionIndex + 1} active toggled to: ${region.active}`);
                     }
                 } else {
                     // Normal click: Select for editing
@@ -608,7 +613,7 @@
             // Right-click: Toggle active state (alternative)
             tab.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
-                const region = regions[regionIndex];
+                const region = regions.find(r => r.index === regionIndex);
                 if (region) {
                     region.active = !region.active;
                     region.activeState.setValue(region.active);
@@ -964,8 +969,12 @@
             // Enforce minimum region size (0.1%)
             if (end - start < 0.001) end = start + 0.001;
 
-            const region = regions[selectedRegionIndex];
-            if (!region) return;
+            // Find region by index property (not array position)
+            const region = regions.find(r => r.index === selectedRegionIndex);
+            if (!region) {
+                console.warn(`[Sektor] Region ${selectedRegionIndex} not found in regions array`);
+                return;
+            }
 
             region.start = start;
             region.end = end;
@@ -1020,6 +1029,15 @@
             console.log('[JS] Received waveform data, points:', peaks.length);
             currentWaveformData = peaks;
             requestRender();  // Use requestAnimationFrame for smoother rendering
+        };
+
+        // Playhead visualization state
+        let currentPlayheads = [];
+
+        // Called by C++ via evaluateJavascript (30 Hz)
+        window.updatePlayheads = (playheads) => {
+            currentPlayheads = playheads;
+            requestRender();  // Redraw with new playhead positions
         };
 
         function drawWaveform(peaks) {
@@ -1136,7 +1154,34 @@
                 ctx.fillText(`${region.index + 1}`, startX + 5, 5);
             });
 
-            // 5. Center line
+            // 5. Draw playheads (grain extraction positions)
+            if (currentPlayheads && currentPlayheads.length > 0) {
+                currentPlayheads.forEach(playhead => {
+                    const x = playhead.pos * width;
+                    const regionIndex = playhead.region;
+                    const color = REGION_COLORS[regionIndex] || '#ffffff';
+
+                    // Draw vertical line at playhead position
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+
+                    // Draw small circle at top
+                    ctx.fillStyle = color;
+                    ctx.globalAlpha = 1.0;
+                    ctx.beginPath();
+                    ctx.arc(x, 10, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.globalAlpha = 1.0;
+                });
+            }
+
+            // 6. Center line
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
             ctx.lineWidth = 1;
             ctx.beginPath();

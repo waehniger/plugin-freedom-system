@@ -7,6 +7,7 @@
 
 SektorAudioProcessor::Voice::Voice()
     : grainPhase(0.0f)
+    , absoluteGrainPosition(0.0f)
     , samplesUntilNextGrain(0)
     , state(IDLE)
     , midiNoteNumber(0)
@@ -14,6 +15,7 @@ SektorAudioProcessor::Voice::Voice()
     , envelopeLevel(0.0f)
     , releaseRate(0.0f)
     , voiceAge(0)
+    , currentRegionIndex(0)
     , currentSampleRate(44100.0)
     , maxGrainSamples(0)
 {
@@ -66,6 +68,7 @@ void SektorAudioProcessor::Voice::startNote(int midiNote, float velocity)
     state = PLAYING;
     envelopeLevel = 1.0f;  // Instant attack
     grainPhase = 0.0f;
+    absoluteGrainPosition = 0.0f;  // Will be set properly when first grain triggers
     samplesUntilNextGrain = 0;  // Trigger first grain immediately
     voiceAge = 0;
 
@@ -145,11 +148,13 @@ const SektorAudioProcessor::RegionData& SektorAudioProcessor::Voice::getRandomAc
     // Fallback to region 0 if none active
     if (activeIndices.empty())
     {
+        currentRegionIndex = 0;
         return regions[0];
     }
 
     // Select random active region
     int selectedIndex = activeIndices[rng.nextInt(static_cast<int>(activeIndices.size()))];
+    currentRegionIndex = selectedIndex;
     return regions[selectedIndex];
 }
 
@@ -214,6 +219,9 @@ void SektorAudioProcessor::Voice::generateGrain(int grainSamples, float spacing,
     targetGrain->samplesRemaining = grainSamples;
     targetGrain->grainStartPhase = regionStartSamples + grainPhase;  // Absolute position in sample buffer
     targetGrain->isActive = true;
+
+    // Update absolute position for playhead visualization
+    absoluteGrainPosition = targetGrain->grainStartPhase;
 
     // Advance grain phase for next grain (spacing controls advancement)
     grainPhase += static_cast<float>(grainSamples) * spacing;
@@ -707,6 +715,35 @@ void SektorAudioProcessor::setStateInformation(const void* data, int sizeInBytes
 
     if (xmlState != nullptr && xmlState->hasTagName(parameters.state.getType()))
         parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
+}
+
+// Playhead visualization data
+std::vector<SektorAudioProcessor::PlayheadPosition> SektorAudioProcessor::getPlayheadPositions() const
+{
+    std::vector<PlayheadPosition> positions;
+
+    // Get sample buffer length
+    auto* buffer = currentSampleBuffer.load();
+    if (buffer == nullptr || buffer->getNumSamples() == 0)
+        return positions;  // Return empty if no sample loaded
+
+    const float sampleLength = static_cast<float>(buffer->getNumSamples());
+
+    // Collect playhead positions from all active voices
+    const auto& voices = voiceManager.getVoices();
+    for (const auto& voice : voices)
+    {
+        if (voice.isActive())
+        {
+            PlayheadPosition pos;
+            pos.normalizedPosition = voice.getAbsoluteGrainPosition() / sampleLength;
+            pos.regionIndex = voice.getCurrentRegionIndex();
+            pos.isActive = true;
+            positions.push_back(pos);
+        }
+    }
+
+    return positions;
 }
 
 // Sample buffer management (thread-safe)
